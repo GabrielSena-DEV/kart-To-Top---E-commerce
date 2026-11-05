@@ -349,7 +349,13 @@
     border-radius:50%;
     display:flex; align-items:center; justify-content:center;
   }
-  .fav svg{ width:15px; height:15px; stroke:var(--ink); fill:none; }
+  .fav svg{ width:15px; height:15px; stroke:var(--ink); fill:none; pointer-events:none; }
+  .fav.active{ background:var(--red); }
+  .fav.active svg{ stroke:var(--white); fill:var(--white); }
+  button.fav{ border:0; }
+  .empty-state{ grid-column:1/-1; padding:48px 24px; text-align:center; background:var(--card); border:1px solid #dcdde0; }
+  .empty-state strong{ display:block; font-family:'Rajdhani',sans-serif; font-size:22px; text-transform:uppercase; }
+  .empty-state span{ color:var(--steel); }
   .card-body{
     padding:12px 14px 16px;
     display:flex;

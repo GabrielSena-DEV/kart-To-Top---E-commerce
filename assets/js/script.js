@@ -47,7 +47,7 @@
   CATS.forEach(cat => { for (let i = 0; i < 6; i++) catalog.push(makeProduct(cat, i)); });
 
   function cardHTML(p) {
-    return `<article class="card" data-cat="${p.cat}">
+    return `<article class="card" data-cat="${p.cat}" data-product="${p.title}">
       <div class="card-media">
         ${p.discount ? `<span class="badge">-${p.discount}%</span>` : ""}
         <button class="fav" aria-label="Favoritar ${p.title}" data-favorite><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>
@@ -63,11 +63,13 @@
   }
 
   const deals = catalog.filter(p => p.discount).slice(0, 8);
-  document.getElementById("dealsRow").innerHTML = deals.map(p => `<article class="deal-card card"><div class="deal-timer"><span>Termina em <b>04:12:36</b></span></div><div class="card-media"><span class="badge">-${p.discount}%</span><button class="fav" data-favorite aria-label="Favoritar"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>${ICONS[p.cat]}</div><div class="card-body"><div class="card-cat">${LABELS[p.cat]}</div><div class="card-title">${p.title}</div><div class="price-row"><div class="price-old">R$ ${money(p.old)}</div><div class="price"><small>R$</small> ${money(p.price)}</div></div><button class="add-btn" data-add>Adicionar</button></div></article>`).join("");
+  document.getElementById("dealsRow").innerHTML = deals.map(p => `<article class="deal-card card" data-product="${p.title}"><div class="deal-timer"><span>Termina em <b>04:12:36</b></span></div><div class="card-media"><span class="badge">-${p.discount}%</span><button class="fav" data-favorite aria-label="Favoritar"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>${ICONS[p.cat]}</div><div class="card-body"><div class="card-cat">${LABELS[p.cat]}</div><div class="card-title">${p.title}</div><div class="price-row"><div class="price-old">R$ ${money(p.old)}</div><div class="price"><small>R$</small> ${money(p.price)}</div></div><button class="add-btn" data-add>Adicionar</button></div></article>`).join("");
 
   let activeCategory = "todos";
   let cartCount = 0;
   let searchTerm = "";
+  const favorites = new Set();
+  const cart = new Map();
 
   function productsFor(category, query = "") {
     let products = category === "todos" ? [...catalog] : category === "ofertas" ? catalog.filter(p => p.discount) : catalog.filter(p => p.cat === category);
@@ -105,9 +107,36 @@
   });
 
   document.body.addEventListener("click", e => {
-    if (e.target.closest("[data-add]")) { cartCount++; document.getElementById("cartCount").textContent = cartCount; }
+    const card = e.target.closest(".card[data-product]");
+    const title = card?.dataset.product;
+
+    if (e.target.closest("[data-add]") && title) {
+      cart.set(title, (cart.get(title) || 0) + 1);
+      updateCart();
+    }
+
     const favorite = e.target.closest("[data-favorite]");
-    if (favorite) favorite.classList.toggle("active");
+    if (favorite && title) {
+      favorites.has(title) ? favorites.delete(title) : favorites.add(title);
+      syncFavoriteButtons();
+      renderFavorites();
+    }
+
+    const removeFavorite = e.target.closest("[data-remove-favorite]");
+    if (removeFavorite) {
+      favorites.delete(removeFavorite.dataset.removeFavorite);
+      syncFavoriteButtons();
+      renderFavorites();
+    }
+
+    const cartAction = e.target.closest("[data-cart-action]");
+    if (cartAction) {
+      const productTitle = cartAction.dataset.cartAction;
+      if (cartAction.classList.contains("remove")) cart.delete(productTitle);
+      else cart.set(productTitle, Math.max(0, (cart.get(productTitle) || 0) + (cartAction.dataset.delta === "up" ? 1 : -1)));
+      if (cart.get(productTitle) === 0) cart.delete(productTitle);
+      updateCart();
+    }
   });
 
   const search = document.getElementById("searchInput");
@@ -121,3 +150,65 @@
 
   document.getElementById("moreGrid").innerHTML = [...catalog].sort(() => Math.random() - .5).slice(0, 10).map(cardHTML).join("");
   renderCatalog();
+
+  function syncFavoriteButtons() {
+    document.querySelectorAll(".card[data-product]").forEach(card => {
+      card.querySelector("[data-favorite]")?.classList.toggle("active", favorites.has(card.dataset.product));
+    });
+  }
+
+  function panelItem(product, actions) {
+    return `<article class="panel-item">
+      <div class="panel-item-icon">${ICONS[product.cat]}</div>
+      <div><div class="panel-item-title">${product.title}</div><div class="panel-item-price">R$ ${money(product.price)}</div>${actions}</div>
+    </article>`;
+  }
+
+  function renderFavorites() {
+    const list = [...favorites].map(title => catalog.find(product => product.title === title)).filter(Boolean);
+    document.getElementById("favoritesList").innerHTML = list.length ? list.map(product => panelItem(product,
+      `<button class="item-remove" type="button" data-remove-favorite="${product.title}" aria-label="Remover dos favoritos">&times;</button>`
+    )).join("") : `<div class="panel-empty"><strong>Sua lista está vazia</strong><span>Escolha um produto com o coração para guardar aqui.</span></div>`;
+  }
+
+  function updateCart() {
+    cartCount = [...cart.values()].reduce((total, quantity) => total + quantity, 0);
+    document.getElementById("cartCount").textContent = cartCount;
+    const products = [...cart.entries()].map(([title, quantity]) => ({ product: catalog.find(item => item.title === title), quantity })).filter(item => item.product);
+    document.getElementById("cartList").innerHTML = products.length ? products.map(({ product, quantity }) => panelItem(product,
+      `<div class="cart-quantity"><button type="button" data-cart-action="${product.title}" data-delta="down">−</button><span>${quantity}</span><button type="button" data-cart-action="${product.title}" data-delta="up">+</button><button class="item-remove remove" type="button" data-cart-action="${product.title}" aria-label="Remover do carrinho">&times;</button></div>`
+    )).join("") : `<div class="panel-empty"><strong>Seu carrinho está vazio</strong><span>Adicione equipamentos e eles aparecerão aqui.</span></div>`;
+    const total = products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    document.getElementById("cartSummary").innerHTML = products.length ? `<div class="cart-total"><span>Total</span><span>R$ ${money(total)}</span></div><button class="panel-primary" type="button">Ir para o checkout</button>` : "";
+    renderFavorites();
+  }
+
+  function openScreen(id) {
+    const screen = document.getElementById(id);
+    screen.classList.add("open");
+    screen.setAttribute("aria-hidden", "false");
+    document.body.classList.add("screen-open");
+  }
+
+  function closeScreens() {
+    document.querySelectorAll(".screen-overlay.open").forEach(screen => {
+      screen.classList.remove("open");
+      screen.setAttribute("aria-hidden", "true");
+    });
+    document.body.classList.remove("screen-open");
+  }
+
+  document.getElementById("loginOpen").addEventListener("click", () => openScreen("loginScreen"));
+  document.getElementById("favoritesOpen").addEventListener("click", () => openScreen("favoritesScreen"));
+  document.getElementById("cartOpen").addEventListener("click", () => openScreen("cartScreen"));
+  document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", closeScreens));
+  document.querySelectorAll(".screen-overlay").forEach(screen => screen.addEventListener("click", e => { if (e.target === screen) closeScreens(); }));
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeScreens(); });
+  document.getElementById("loginForm").addEventListener("submit", e => {
+    e.preventDefault();
+    closeScreens();
+    document.getElementById("loginOpen").lastChild.textContent = " Olá, piloto";
+  });
+
+  renderFavorites();
+  updateCart();

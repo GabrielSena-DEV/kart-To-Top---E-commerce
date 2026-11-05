@@ -43,19 +43,19 @@
     </form>
 
     <div class="header-actions">
-      <a href="#" class="header-action">
+      <button type="button" class="header-action" id="loginOpen">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         Entrar
-      </a>
-      <a href="#" class="header-action">
+      </button>
+      <button type="button" class="header-action" id="favoritesOpen">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
         Favoritos
-      </a>
-      <a href="#cart" class="header-action">
+      </button>
+      <button type="button" class="header-action" id="cartOpen">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
         Carrinho
         <span class="cart-count" id="cartCount">0</span>
-      </a>
+      </button>
     </div>
   </div>
 </header>
@@ -194,6 +194,37 @@
 </section>
 
 <!-- FOOTER -->
+<!-- ACCOUNT, FAVORITES AND CART SCREENS -->
+<div class="screen-overlay" id="loginScreen" aria-hidden="true">
+  <section class="login-panel" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <button class="screen-close" type="button" data-close aria-label="Fechar">&times;</button>
+    <div class="login-brand">KART<span>2</span>TOP</div>
+    <h2 id="loginTitle">Entrar na sua conta</h2>
+    <p>Visualização do futuro login. Nenhum dado é enviado ou armazenado.</p>
+    <form id="loginForm">
+      <label>E-mail<input type="email" placeholder="seu@email.com" required></label>
+      <label>Senha<input type="password" placeholder="Sua senha" minlength="4" required></label>
+      <button class="panel-primary" type="submit">Entrar</button>
+    </form>
+    <button class="create-account" type="button">Criar uma conta</button>
+  </section>
+</div>
+
+<div class="screen-overlay" id="favoritesScreen" aria-hidden="true">
+  <aside class="side-panel" role="dialog" aria-modal="true" aria-labelledby="favoritesTitle">
+    <div class="panel-head"><h2 id="favoritesTitle">Favoritos</h2><button class="screen-close" type="button" data-close aria-label="Fechar">&times;</button></div>
+    <div id="favoritesList" class="panel-list"></div>
+  </aside>
+</div>
+
+<div class="screen-overlay" id="cartScreen" aria-hidden="true">
+  <aside class="side-panel cart-panel" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+    <div class="panel-head"><h2 id="cartTitle">Carrinho</h2><button class="screen-close" type="button" data-close aria-label="Fechar">&times;</button></div>
+    <div id="cartList" class="panel-list"></div>
+    <div class="cart-summary" id="cartSummary"></div>
+  </aside>
+</div>
+
 <footer>
   <div class="container">
     <div class="foot-grid">

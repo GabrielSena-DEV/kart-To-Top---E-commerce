@@ -77,17 +77,44 @@
     return products;
   }
 
-  function selectCategory(category) {
+  const categoryNames = { todos: "Todos", kart: "Karts & Peças", capacete: "Capacetes", pneu: "Pneus & Rodas", indumentaria: "Indumentária", eletronica: "Cronometragem", oficina: "Oficina & Ferramentas", ofertas: "Ofertas" };
+
+  function renderCategoryPage(category) {
+    let products = productsFor(category);
+    const sort = document.getElementById("sortProducts")?.value || "featured";
+    if (sort === "low") products.sort((a, b) => a.price - b.price);
+    if (sort === "high") products.sort((a, b) => b.price - a.price);
+    document.getElementById("categoryPageTitle").textContent = categoryNames[category];
+    document.getElementById("categoryCount").textContent = `${products.length} produto${products.length === 1 ? "" : "s"}`;
+    document.getElementById("categoryGrid").innerHTML = products.length ? products.map(cardHTML).join("") : `<div class="empty-state"><strong>Nenhum produto encontrado</strong><span>Escolha outra categoria.</span></div>`;
+  }
+
+  function showAppPage(page) {
+    document.getElementById("storeHome").hidden = page !== "home";
+    document.getElementById("categoryPage").hidden = page !== "category";
+    document.getElementById("infoPage").hidden = page !== "info";
+    document.getElementById("productPage").hidden = page !== "product";
+    const sharedSections = [document.querySelector(".newsletter"), document.querySelector("footer")];
+    sharedSections.forEach(section => {
+      section.toggleAttribute("hidden", page !== "home");
+      section.hidden = page !== "home";
+    });
+  }
+
+  function openCategoryPage(category) {
     activeCategory = category;
-    document.querySelectorAll("#catList button[data-cat]").forEach(button => button.classList.toggle("active", button.dataset.cat === category));
-    document.querySelectorAll(".tile[data-cat]").forEach(tile => tile.classList.toggle("active", tile.dataset.cat === category));
-    const hero = HERO[category];
-    document.querySelector(".hero h1").innerHTML = hero[0].replace(" ", "<br>");
-    document.querySelector(".hero p").textContent = hero[1];
     searchTerm = "";
     document.getElementById("searchInput").value = "";
-    renderCatalog();
-    document.getElementById("recommended").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("categorySelect").value = category;
+    document.querySelectorAll("#catList button[data-cat]").forEach(button => button.classList.toggle("active", button.dataset.cat === category));
+    document.querySelectorAll(".tile[data-cat]").forEach(tile => tile.classList.toggle("active", tile.dataset.cat === category));
+    renderCategoryPage(category);
+    showAppPage("category");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function selectCategory(category) {
+    openCategoryPage(category);
   }
 
   function renderCatalog() {
@@ -109,6 +136,8 @@
   document.body.addEventListener("click", e => {
     const card = e.target.closest(".card[data-product]");
     const title = card?.dataset.product;
+
+    if (!e.target.closest("button") && card && title) openProduct(title);
 
     if (e.target.closest("[data-add]") && title) {
       cart.set(title, (cart.get(title) || 0) + 1);
@@ -179,7 +208,7 @@
       `<div class="cart-quantity"><button type="button" data-cart-action="${product.title}" data-delta="down">−</button><span>${quantity}</span><button type="button" data-cart-action="${product.title}" data-delta="up">+</button><button class="item-remove remove" type="button" data-cart-action="${product.title}" aria-label="Remover do carrinho">&times;</button></div>`
     )).join("") : `<div class="panel-empty"><strong>Seu carrinho está vazio</strong><span>Adicione equipamentos e eles aparecerão aqui.</span></div>`;
     const total = products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    document.getElementById("cartSummary").innerHTML = products.length ? `<div class="cart-total"><span>Total</span><span>R$ ${money(total)}</span></div><button class="panel-primary" type="button">Ir para o checkout</button>` : "";
+    document.getElementById("cartSummary").innerHTML = products.length ? `<div class="cart-total"><span>Total</span><span>R$ ${money(total)}</span></div><button class="panel-primary" type="button" data-open-checkout>Ir para o checkout</button>` : "";
     renderFavorites();
   }
 
@@ -198,6 +227,142 @@
     document.body.classList.remove("screen-open");
   }
 
+  document.getElementById("categorySelect").addEventListener("change", e => openCategoryPage(e.target.value));
+  document.getElementById("sortProducts").addEventListener("change", () => renderCategoryPage(document.getElementById("categorySelect").value));
+  document.getElementById("backHome").addEventListener("click", () => {
+    showAppPage("home");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("homeCategorySelect").addEventListener("change", e => {
+    activeCategory = e.target.value;
+    searchTerm = "";
+    renderCatalog();
+  });
+
+  let productOrigin = "home";
+
+  function openProduct(title) {
+    const product = catalog.find(item => item.title === title);
+    if (!product) return;
+    productOrigin = document.getElementById("categoryPage").hidden ? "home" : "category";
+    document.getElementById("productPageContent").innerHTML = `<section class="market-product-main"><div class="product-gallery"><div class="product-gallery-main">${ICONS[product.cat]}</div><div class="gallery-thumbs"><button class="active" type="button">${ICONS[product.cat]}</button><button type="button">${ICONS[product.cat]}</button><button type="button">${ICONS[product.cat]}</button></div></div><div class="product-information"><span class="product-detail-category">Novo · ${LABELS[product.cat]}</span><h1 id="productDetailTitle">${product.title}</h1><div class="product-rating"><span>★★★★★</span> ${product.rating} (${product.reviews} avaliações)</div><div class="market-price"><small>R$</small> ${money(product.price)}</div><div class="market-installment">em até 6x de R$ ${money(product.price / 6)} sem juros</div><p class="product-detail-copy">Equipamento selecionado para pilotos amadores e profissionais, com estrutura voltada a segurança, desempenho e facilidade de manutenção.</p><div class="product-benefit"><strong>Chegará grátis</strong><span>entrega estimada para toda região Sudeste</span></div><div class="product-benefit"><strong>Devolução grátis</strong><span>até 30 dias após receber o produto</span></div></div></section><aside class="market-buy-box"><span class="stock-status">Estoque disponível</span><div class="buy-quantity">Quantidade: <strong>1 unidade</strong></div><button class="buy-primary" type="button" data-detail-add="${product.title}">Adicionar ao carrinho</button><button class="buy-secondary" type="button" data-detail-buy="${product.title}">Comprar agora</button><p>Compra demonstrativa · pagamento seguro</p></aside>`;
+    showAppPage("product");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  document.getElementById("productPageContent").addEventListener("click", e => {
+    const add = e.target.closest("[data-detail-add]");
+    const buy = e.target.closest("[data-detail-buy]");
+    if (!add && !buy) return;
+    const title = add ? add.dataset.detailAdd : buy.dataset.detailBuy;
+    cart.set(title, (cart.get(title) || 0) + 1);
+    updateCart();
+    if (buy) document.getElementById("cartOpen").click();
+  });
+
+  document.getElementById("productBack").addEventListener("click", () => showAppPage(productOrigin));
+
+  document.querySelectorAll(".brand").forEach(brand => brand.addEventListener("click", e => {
+    e.preventDefault();
+    closeScreens();
+    showAppPage("home");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }));
+
+  let heroIndex = 0;
+  const heroSlides = [...document.querySelectorAll(".hero-slide")];
+  function showHero(index) {
+    heroIndex = (index + heroSlides.length) % heroSlides.length;
+    heroSlides.forEach((slide, i) => slide.classList.toggle("active", i === heroIndex));
+    document.querySelectorAll(".hero-dot").forEach((dot, i) => dot.classList.toggle("active", i === heroIndex));
+  }
+  heroSlides.forEach((_, index) => document.getElementById("heroDots").insertAdjacentHTML("beforeend", `<button class="hero-dot${index === 0 ? " active" : ""}" type="button" aria-label="Banner ${index + 1}"></button>`));
+  document.getElementById("heroDots").addEventListener("click", e => { const dot = e.target.closest(".hero-dot"); if (dot) showHero([...dot.parentElement.children].indexOf(dot)); });
+  document.getElementById("heroPrev").addEventListener("click", () => showHero(heroIndex - 1));
+  document.getElementById("heroNext").addEventListener("click", () => showHero(heroIndex + 1));
+  setInterval(() => showHero(heroIndex + 1), 6000);
+  document.querySelectorAll("[data-carousel-category]").forEach(button => button.addEventListener("click", () => openCategoryPage(button.dataset.carouselCategory)));
+
+  document.body.addEventListener("click", e => {
+    if (!e.target.closest("[data-open-checkout]")) return;
+    closeScreens();
+    const products = [...cart.entries()].map(([title, quantity]) => ({ product: catalog.find(item => item.title === title), quantity })).filter(item => item.product);
+    document.getElementById("checkoutItems").innerHTML = products.map(({ product, quantity }) => `<div class="checkout-item"><span>${quantity}x ${product.title}</span><strong>R$ ${money(product.price * quantity)}</strong></div>`).join("");
+    document.getElementById("checkoutTotal").textContent = `R$ ${money(products.reduce((sum, item) => sum + item.product.price * item.quantity, 0))}`;
+    openScreen("checkoutScreen");
+  });
+  document.getElementById("checkoutClose").addEventListener("click", closeScreens);
+  document.getElementById("checkoutScreen").addEventListener("click", e => { if (e.target.id === "checkoutScreen") closeScreens(); });
+  document.getElementById("checkoutForm").addEventListener("submit", e => { e.preventDefault(); closeScreens(); alert("Pedido de demonstração registrado com sucesso."); });
+
+  const infoGroups = {
+    institucional: {
+      title: "Institucional",
+      topics: {
+        sobre: ["Sobre o Kart to Top", "A Kart to Top reúne equipamentos, peças e soluções para automobilismo e kartismo em uma experiência simples. Esta área apresenta um modelo de como seriam as informações institucionais da empresa."],
+        trabalhe: ["Trabalhe conosco", "Veja oportunidades, envie seu currículo e acompanhe vagas para diferentes áreas da Kart to Top. Em uma versão futura, candidatos poderão criar perfis e acompanhar processos seletivos."],
+        sustentabilidade: ["Sustentabilidade", "Nossa proposta valoriza embalagens responsáveis, parceiros conscientes e práticas de descarte adequadas. Projetos futuros poderão apresentar metas ambientais e relatórios de impacto."],
+        imprensa: ["Imprensa", "Esta página reúne comunicados, materiais de marca e informações de contato para imprensa. Um canal futuro permitirá solicitar entrevistas e baixar kits oficiais."]
+      }
+    },
+    ajuda: {
+      title: "Ajuda",
+      topics: {
+        central: ["Central de ajuda", "Encontre orientações sobre compras, pagamentos, entregas, trocas e uso da sua conta. Esta tela demonstra como uma central de atendimento poderá organizar os principais assuntos."],
+        trocas: ["Trocas e devoluções", "O cliente poderá consultar prazos, requisitos e status das solicitações de troca ou devolução. Produtos devem permanecer sem uso e com os itens originais da embalagem."],
+        rastrear: ["Rastrear pedido", "Digite o código do pedido para acompanhar a preparação, coleta e entrega dos produtos. Nesta demonstração, o rastreamento não está conectado a uma transportadora real."],
+        fale: ["Fale conosco", "Nos canais oficiais de atendimento poderão ser enviados pedidos, dúvidas e sugestões. Em uma próxima etapa, esta área poderá incluir chat e formulário de contato."]
+      }
+    },
+    conta: {
+      title: "Minha conta",
+      topics: {
+        pedidos: ["Meus pedidos", "Consulte pedidos realizados, acompanhe entregas e acesse notas fiscais. Também poderá haver detalhes de pagamento e opção de solicitar suporte."],
+        favoritos: ["Lista de favoritos", "Revise os equipamentos que você marcou com o coração. Os favoritos ajudam a encontrar novamente produtos de interesse entre as categorias da loja."],
+        vender: ["Vender no Kart to Top", "Conheça como lojistas e fabricantes poderão anunciar produtos na plataforma. A área futura incluirá cadastro de vendedor, estoque e acompanhamento das vendas."],
+        cupons: ["Cupons", "Gerencie cupons disponíveis, códigos promocionais e benefícios da sua conta. Na versão completa, cada cupom informará regras de validade e categorias elegíveis."]
+      }
+    },
+    politicas: {
+      title: "Políticas",
+      topics: {
+        termos: ["Termos de uso", "Os termos de uso definem as regras para navegar e realizar compras na Kart to Top. A versão completa apresentará responsabilidades da plataforma, do usuário e das partes envolvidas."],
+        privacidade: ["Política de privacidade", "Esta política explica como dados poderão ser utilizados para oferecer e melhorar os serviços. Nenhum dado real é armazenado nesta demonstração sem banco de dados."],
+        entrega: ["Política de entrega", "Os prazos e custos dependem do endereço, da modalidade de envio e da disponibilidade do produto. A área poderá mostrar opções de retirada e acompanhamento de transportadoras."],
+        seguranca: ["Segurança homologada", "Equipamentos de proteção apresentados na loja devem possuir características e certificações adequadas ao uso. Consulte sempre os dados do fabricante e as exigências da modalidade esportiva."]
+      }
+    }
+  };
+
+  function openInfoPage(group, topic) {
+    const section = infoGroups[group];
+    if (!section) return;
+    const topicKey = topic || Object.keys(section.topics)[0];
+    const selected = section.topics[topicKey];
+    if (!selected) return;
+    showAppPage("info");
+    document.getElementById("infoPageTitle").textContent = section.title;
+    document.getElementById("infoTopicKicker").textContent = section.title;
+    document.getElementById("infoTopicTitle").textContent = selected[0];
+    document.getElementById("infoTopicText").innerHTML = `<p>${selected[1]}</p>`;
+    document.getElementById("infoMenu").innerHTML = Object.entries(section.topics).map(([key, value]) => `<button type="button" data-info-menu="${group}" data-info-menu-topic="${key}" class="${key === topicKey ? "active" : ""}">${value[0]}</button>`).join("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  document.querySelectorAll("[data-info-group]").forEach(link => link.addEventListener("click", e => {
+    e.preventDefault();
+    openInfoPage(link.dataset.infoGroup, link.dataset.infoTopic);
+  }));
+  document.getElementById("infoMenu").addEventListener("click", e => {
+    const button = e.target.closest("[data-info-menu-topic]");
+    if (button) openInfoPage(button.dataset.infoMenu, button.dataset.infoMenuTopic);
+  });
+  document.getElementById("infoBackHome").addEventListener("click", () => {
+    document.getElementById("infoPage").hidden = true;
+    document.getElementById("storeHome").hidden = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
   document.getElementById("loginOpen").addEventListener("click", () => openScreen("loginScreen"));
   document.getElementById("favoritesOpen").addEventListener("click", () => openScreen("favoritesScreen"));
   document.getElementById("cartOpen").addEventListener("click", () => openScreen("cartScreen"));
@@ -208,6 +373,7 @@
     e.preventDefault();
     closeScreens();
     document.getElementById("loginOpen").lastChild.textContent = " Olá, piloto";
+    document.getElementById("loginOpen").classList.add("logged-in");
   });
 
   renderFavorites();

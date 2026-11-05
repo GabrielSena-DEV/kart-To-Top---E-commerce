@@ -76,39 +76,71 @@
   </div>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-flag"></div>
-  <div class="hero-stripe"></div>
+<!-- CATEGORY PAGE -->
+<main id="categoryPage" class="category-page" hidden>
   <div class="container">
-    <div>
-      <div class="hero-eyebrow">CAMPEONATO DE VERÃO — ATÉ 30% OFF</div>
-      <h1>Da largada<br>ao <em>pódio</em></h1>
-      <p>Karts, capacetes homologados, pneus slick e tudo que sua equipe precisa para chegar na frente. Entrega para todo o Brasil.</p>
-      <a href="#ofertas" class="btn-primary">
-        Ver ofertas da semana
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      </a>
+    <div class="category-page-head">
+      <button class="back-home" id="backHome" type="button">&larr; Voltar para a loja</button>
+      <div>
+        <span class="category-kicker">Categorias Kart to Top</span>
+        <h1 id="categoryPageTitle">Produtos</h1>
+      </div>
+      <label class="category-switcher">Mostrar categoria
+        <select id="categorySelect">
+          <option value="todos">Todos</option>
+          <option value="kart">Karts &amp; Peças</option>
+          <option value="capacete">Capacetes</option>
+          <option value="pneu">Pneus &amp; Rodas</option>
+          <option value="indumentaria">Indumentária</option>
+          <option value="eletronica">Cronometragem</option>
+          <option value="oficina">Oficina &amp; Ferramentas</option>
+          <option value="ofertas">Ofertas</option>
+        </select>
+      </label>
     </div>
-    <div class="hero-kart">
-      <svg viewBox="0 0 400 260" width="100%">
-        <ellipse cx="200" cy="230" rx="170" ry="14" fill="#000" opacity=".25"/>
-        <rect x="70" y="150" width="260" height="34" rx="4" fill="#eaebec"/>
-        <rect x="100" y="112" width="150" height="48" rx="6" fill="#b82325"/>
-        <rect x="120" y="118" width="70" height="26" rx="3" fill="#36373a"/>
-        <circle cx="120" cy="190" r="34" fill="#36373a"/>
-        <circle cx="120" cy="190" r="14" fill="#93a2a7"/>
-        <circle cx="280" cy="190" r="34" fill="#36373a"/>
-        <circle cx="280" cy="190" r="14" fill="#93a2a7"/>
-        <rect x="255" y="90" width="10" height="60" fill="#36373a"/>
-        <rect x="140" y="70" width="60" height="14" rx="4" fill="#36373a"/>
-        <circle cx="200" cy="132" r="20" fill="#927768"/>
-        <circle cx="200" cy="132" r="12" fill="#eaebec"/>
-      </svg>
+    <div class="category-toolbar">
+      <span id="categoryCount">0 produtos</span>
+      <select id="sortProducts" aria-label="Ordenar produtos">
+        <option value="featured">Mais relevantes</option>
+        <option value="low">Menor preço</option>
+        <option value="high">Maior preço</option>
+      </select>
+    </div>
+    <div class="grid category-grid" id="categoryGrid"></div>
+  </div>
+</main>
+
+<main id="productPage" class="product-page" hidden>
+  <div class="container">
+    <button class="back-home" id="productBack" type="button">&larr; Voltar aos produtos</button>
+    <div id="productPageContent" class="product-page-layout"></div>
+  </div>
+</main>
+
+<main id="infoPage" class="info-page" hidden>
+  <div class="container">
+    <button class="back-home" id="infoBackHome" type="button">&larr; Voltar para a loja</button>
+    <div class="info-layout">
+      <aside><span class="category-kicker">Kart to Top</span><h1 id="infoPageTitle">Informações</h1><nav id="infoMenu" class="info-menu"></nav></aside>
+      <section class="info-content"><span id="infoTopicKicker"></span><h2 id="infoTopicTitle"></h2><div id="infoTopicText"></div></section>
     </div>
   </div>
-</section>
+</main>
 
+<div id="storeHome">
+<!-- HERO CAROUSEL -->
+<section class="hero" aria-label="Destaques da Kart to Top">
+  <div class="hero-flag"></div>
+  <div class="hero-track" id="heroTrack">
+    <article class="hero-slide active"><div class="hero-stripe"></div><div class="container"><div><div class="hero-eyebrow">CAMPEONATO DE VERÃO — ATÉ 30% OFF</div><h1>Da largada<br>ao <em>pódio</em></h1><p>Karts, capacetes homologados, pneus slick e tudo que sua equipe precisa para chegar na frente.</p><a href="#ofertas" class="btn-primary">Ver ofertas da semana <span>&rarr;</span></a></div><div class="hero-kart">🏁</div></div></article>
+    <article class="hero-slide"><div class="hero-stripe"></div><div class="container"><div><div class="hero-eyebrow">SEGURANÇA HOMOLOGADA</div><h1>Proteja cada<br><em>volta</em></h1><p>Capacetes, macacões, luvas e botas selecionados para pilotos de todas as categorias.</p><a href="#recommended" class="btn-primary">Ver equipamentos <span>&rarr;</span></a></div><div class="hero-kart">🪖</div></div></article>
+    <article class="hero-slide"><div class="hero-stripe"></div><div class="container"><div><div class="hero-eyebrow">ENTREGA PARA TODO O BRASIL</div><h1>Prepare seu<br><em>kart</em></h1><p>Pneus, rodas, chassis, corrente, coroa e peças de reposição em um só lugar.</p><button class="btn-primary" type="button" data-carousel-category="kart">Comprar peças <span>&rarr;</span></button></div><div class="hero-kart">⚙️</div></div></article>
+    <article class="hero-slide"><div class="hero-stripe"></div><div class="container"><div><div class="hero-eyebrow">KIT COMPLETO PARA SUA EQUIPE</div><h1>Do treino ao<br><em>resultado</em></h1><p>Monte o kit da sua equipe com desconto progressivo a partir de três itens.</p><button class="btn-primary" type="button" data-carousel-category="indumentaria">Montar meu kit <span>&rarr;</span></button></div><div class="hero-kart">🏆</div></div></article>
+  </div>
+  <button class="hero-control hero-prev" id="heroPrev" type="button" aria-label="Banner anterior">&#8249;</button>
+  <button class="hero-control hero-next" id="heroNext" type="button" aria-label="Próximo banner">&#8250;</button>
+  <div class="hero-dots" id="heroDots" aria-label="Escolher banner"></div>
+</section>
 <!-- FLASH DEALS -->
 <section class="section tight" id="ofertas">
   <div class="container">
@@ -143,12 +175,23 @@
 <!-- RECOMMENDED -->
 <section class="section" id="recommended">
   <div class="container">
-    <div class="section-head">
+    <div class="section-head recommendation-head">
       <div>
         <h2 id="recTitle">Baseado nas suas últimas buscas</h2>
         <div class="sub" id="recSub">Continue de onde parou</div>
       </div>
-      <a href="#" class="see-all">Ver mais &rsaquo;</a>
+      <label class="home-category-select">Escolher categoria
+        <select id="homeCategorySelect">
+          <option value="todos">Todos</option>
+          <option value="kart">Karts &amp; Peças</option>
+          <option value="capacete">Capacetes</option>
+          <option value="pneu">Pneus &amp; Rodas</option>
+          <option value="indumentaria">Indumentária</option>
+          <option value="eletronica">Cronometragem</option>
+          <option value="oficina">Oficina &amp; Ferramentas</option>
+          <option value="ofertas">Ofertas</option>
+        </select>
+      </label>
     </div>
     <div class="grid" id="recGrid"></div>
   </div>
@@ -179,6 +222,8 @@
   </div>
 </section>
 
+</div>
+
 <!-- NEWSLETTER -->
 <section class="newsletter">
   <div class="container">
@@ -195,6 +240,13 @@
 
 <!-- FOOTER -->
 <!-- ACCOUNT, FAVORITES AND CART SCREENS -->
+<div class="screen-overlay product-screen" id="productScreen" aria-hidden="true">
+  <section class="product-detail" role="dialog" aria-modal="true" aria-labelledby="productDetailTitle">
+    <button class="screen-close product-close" type="button" data-close-product aria-label="Fechar">&times;</button>
+    <div id="productDetail"></div>
+  </section>
+</div>
+
 <div class="screen-overlay" id="loginScreen" aria-hidden="true">
   <section class="login-panel" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <button class="screen-close" type="button" data-close aria-label="Fechar">&times;</button>
@@ -225,6 +277,20 @@
   </aside>
 </div>
 
+<div class="screen-overlay checkout-screen" id="checkoutScreen" aria-hidden="true">
+  <main class="checkout-page" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <div class="checkout-head"><div><span>Finalização do pedido</span><h2 id="checkoutTitle">Pagamento seguro</h2></div><button class="screen-close" id="checkoutClose" type="button" aria-label="Fechar">&times;</button></div>
+    <form id="checkoutForm" class="checkout-layout">
+      <div class="checkout-fields">
+        <section><h3>1. Dados de entrega</h3><div class="checkout-grid"><label>Nome completo<input required></label><label>CPF<input required placeholder="000.000.000-00"></label><label class="wide">CEP<input required placeholder="00000-000"></label><label class="wide">Endereço<input required></label><label>Número<input required></label><label>Bairro<input required></label><label>Cidade<input required></label><label>Estado<select><option>SP</option><option>RJ</option><option>MG</option><option>RS</option><option>PR</option><option>SC</option></select></label></div></section>
+        <section><h3>2. Forma de entrega</h3><label class="delivery-option"><input type="radio" name="delivery" checked><span><b>Entrega padrão</b><small>Receba em até 5 dias úteis</small></span><strong>Grátis</strong></label><label class="delivery-option"><input type="radio" name="delivery"><span><b>Entrega expressa</b><small>Receba em até 2 dias úteis</small></span><strong>R$ 24,90</strong></label></section>
+        <section><h3>3. Pagamento</h3><div class="payment-methods"><label><input type="radio" name="payment" value="pix" checked><span>Pix <small>Aprovação imediata</small></span></label><label><input type="radio" name="payment" value="card"><span>Cartão <small>Até 10x sem juros</small></span></label></div><div class="card-fields"><label>Número do cartão<input placeholder="0000 0000 0000 0000"></label><label>Nome impresso<input></label><label>Validade<input placeholder="MM/AA"></label><label>CVV<input maxlength="3"></label></div></section>
+      </div>
+      <aside class="checkout-summary"><h3>Resumo do pedido</h3><div id="checkoutItems"></div><div class="checkout-total"><span>Total</span><strong id="checkoutTotal">R$ 0,00</strong></div><button class="panel-primary" type="submit">Finalizar pedido</button><small class="secure-note">Ambiente de demonstração. Nenhum pagamento será processado.</small></aside>
+    </form>
+  </main>
+</div>
+
 <footer>
   <div class="container">
     <div class="foot-grid">
@@ -239,39 +305,39 @@
         </div>
       </div>
       <div>
-        <h5>Institucional</h5>
+        <h5><a href="#institucional" data-info-group="institucional">Institucional</a></h5>
         <ul>
-          <li><a href="#">Sobre o Kart to Top</a></li>
-          <li><a href="#">Trabalhe conosco</a></li>
-          <li><a href="#">Sustentabilidade</a></li>
-          <li><a href="#">Imprensa</a></li>
+          <li><a href="#institucional/sobre" data-info-group="institucional" data-info-topic="sobre">Sobre o Kart to Top</a></li>
+          <li><a href="#institucional/trabalhe" data-info-group="institucional" data-info-topic="trabalhe">Trabalhe conosco</a></li>
+          <li><a href="#institucional/sustentabilidade" data-info-group="institucional" data-info-topic="sustentabilidade">Sustentabilidade</a></li>
+          <li><a href="#institucional/imprensa" data-info-group="institucional" data-info-topic="imprensa">Imprensa</a></li>
         </ul>
       </div>
       <div>
-        <h5>Ajuda</h5>
+        <h5><a href="#ajuda" data-info-group="ajuda">Ajuda</a></h5>
         <ul>
-          <li><a href="#">Central de ajuda</a></li>
-          <li><a href="#">Trocas e devoluções</a></li>
-          <li><a href="#">Rastrear pedido</a></li>
-          <li><a href="#">Fale conosco</a></li>
+          <li><a href="#ajuda/central" data-info-group="ajuda" data-info-topic="central">Central de ajuda</a></li>
+          <li><a href="#ajuda/trocas" data-info-group="ajuda" data-info-topic="trocas">Trocas e devoluções</a></li>
+          <li><a href="#ajuda/rastrear" data-info-group="ajuda" data-info-topic="rastrear">Rastrear pedido</a></li>
+          <li><a href="#ajuda/fale" data-info-group="ajuda" data-info-topic="fale">Fale conosco</a></li>
         </ul>
       </div>
       <div>
-        <h5>Minha conta</h5>
+        <h5><a href="#conta" data-info-group="conta">Minha conta</a></h5>
         <ul>
-          <li><a href="#">Meus pedidos</a></li>
-          <li><a href="#">Lista de favoritos</a></li>
-          <li><a href="#">Vender no Kart to Top</a></li>
-          <li><a href="#">Cupons</a></li>
+          <li><a href="#conta/pedidos" data-info-group="conta" data-info-topic="pedidos">Meus pedidos</a></li>
+          <li><a href="#conta/favoritos" data-info-group="conta" data-info-topic="favoritos">Lista de favoritos</a></li>
+          <li><a href="#conta/vender" data-info-group="conta" data-info-topic="vender">Vender no Kart to Top</a></li>
+          <li><a href="#conta/cupons" data-info-group="conta" data-info-topic="cupons">Cupons</a></li>
         </ul>
       </div>
       <div>
-        <h5>Políticas</h5>
+        <h5><a href="#politicas" data-info-group="politicas">Políticas</a></h5>
         <ul>
-          <li><a href="#">Termos de uso</a></li>
-          <li><a href="#">Política de privacidade</a></li>
-          <li><a href="#">Política de entrega</a></li>
-          <li><a href="#">Segurança homologada</a></li>
+          <li><a href="#politicas/termos" data-info-group="politicas" data-info-topic="termos">Termos de uso</a></li>
+          <li><a href="#politicas/privacidade" data-info-group="politicas" data-info-topic="privacidade">Política de privacidade</a></li>
+          <li><a href="#politicas/entrega" data-info-group="politicas" data-info-topic="entrega">Política de entrega</a></li>
+          <li><a href="#politicas/seguranca" data-info-group="politicas" data-info-topic="seguranca">Segurança homologada</a></li>
         </ul>
       </div>
     </div>

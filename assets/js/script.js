@@ -145,11 +145,14 @@
   let activeCategory = "todos";
   let cartCount = 0;
   let searchTerm = "";
-  function getRandomProducts(quantidade) {
+  function getRandomProducts(quantidade, source = catalog) {
     if (!Number.isInteger(quantidade) || quantidade < 0) {
       throw new RangeError("A quantidade de produtos deve ser um inteiro não negativo.");
     }
-    const products = [...catalog];
+    if (!Array.isArray(source)) {
+      throw new TypeError("A fonte de produtos deve ser um array.");
+    }
+    const products = [...source];
     for (let index = products.length - 1; index > 0; index--) {
       const randomIndex = Math.floor(Math.random() * (index + 1));
       [products[index], products[randomIndex]] = [products[randomIndex], products[index]];
@@ -217,6 +220,17 @@
     }
   }
   const cart = loadCart();
+  const recommendationReviews = [
+    "Produto excelente, chegou antes do prazo!",
+    "Muito melhor do que eu esperava, recomendo.",
+    "Ótima qualidade, compraria novamente.",
+    "Exatamente como no anúncio, perfeito.",
+    "Material muito bom e acabamento caprichado.",
+    "Atendeu muito bem às minhas expectativas.",
+    "Fácil de usar e com ótimo custo-benefício.",
+    "Gostei bastante, já estou usando nos treinos."
+  ];
+  const recommendationReviewers = ["João S.", "Maria O.", "Lucas R.", "Ana P.", "Rafael M.", "Camila T.", "Bruno F.", "Luiza C."];
 
   function readOrdersFromStorage() {
     const savedOrders = localStorage.getItem("orders");
@@ -312,12 +326,22 @@
   }
 
   function showAppPage(page) {
-    const pageTargets = { home: "storeHome", category: "categoryPage", info: "infoPage", product: "productPage", orders: "ordersPage", checkout: "checkoutPage", success: "successPage", register: "registerPage" };
+    const pageTargets = { home: "storeHome", category: "categoryPage", info: "infoPage", product: "productPage", orders: "ordersPage", user: "userPage", checkout: "checkoutPage", success: "successPage", register: "registerPage" };
     document.getElementById("skipLink").href = `#${pageTargets[page] || pageTargets.home}`;
     document.getElementById("storeHome").hidden = page !== "home";
     document.getElementById("categoryPage").hidden = page !== "category";
     document.getElementById("infoPage").hidden = page !== "info";
     document.getElementById("productPage").hidden = page !== "product";
+    const userPage = document.getElementById("userPage");
+    userPage.hidden = page !== "user";
+    userPage.classList.toggle("hidden", page !== "user");
+    if (page === "user") {
+      const name = currentUser?.nome || "piloto";
+      document.getElementById("userPageName").textContent = name;
+      document.getElementById("userSidebarName").textContent = name;
+      document.getElementById("userPageError").hidden = true;
+      renderRecommendations();
+    }
     const registerPage = document.getElementById("registerPage");
     registerPage.hidden = page !== "register";
     registerPage.classList.toggle("hidden", page !== "register");
@@ -340,7 +364,8 @@
       orders: document.getElementById("ordersTitle"),
       checkout: document.getElementById("checkoutTitle"),
       success: document.getElementById("successTitle"),
-      register: document.getElementById("registerTitle")
+      register: document.getElementById("registerTitle"),
+      user: document.getElementById("userPageTitle")
     };
     const heading = pageHeadings[page];
     if (heading) {
@@ -370,6 +395,44 @@
     document.getElementById("recTitle").textContent = searchTerm ? `Resultados para “${searchTerm}”` : activeCategory === "todos" ? "Mais vendidos" : activeCategory === "ofertas" ? "Todas as ofertas" : LABELS[activeCategory];
     document.getElementById("recSub").textContent = `${products.length} produtos encontrados`;
     document.getElementById("recGrid").innerHTML = products.length ? products.slice(0, 10).map(cardHTML).join("") : `<div class="empty-state"><strong>Nenhum produto encontrado</strong><span>Tente buscar por outro nome ou categoria.</span></div>`;
+  }
+
+  function renderRecommendations() {
+    const grid = document.getElementById("recommendedGrid");
+    const products = getRandomProducts(4);
+    grid.innerHTML = products.map(product => {
+      const title = escapeHTML(product.title);
+      const imageUrl = escapeHTML(product.imageUrl || "");
+      const category = escapeHTML(LABELS[product.cat] || "Automobilismo");
+      const quotePool = [...recommendationReviews];
+      const reviewCount = 2 + Math.floor(Math.random() * 2);
+      const reviewsHTML = Array.from({ length: reviewCount }, () => {
+        const quoteIndex = Math.floor(Math.random() * quotePool.length);
+        const quote = escapeHTML(quotePool.splice(quoteIndex, 1)[0]);
+        const reviewer = escapeHTML(recommendationReviewers[Math.floor(Math.random() * recommendationReviewers.length)]);
+        return `<article class="user-review">
+          <div class="user-review-meta">
+            <span class="user-review-stars" aria-label="5 de 5 estrelas">★★★★★</span>
+            <span class="user-review-demo-tag">Relato fictício</span>
+          </div>
+          <p class="user-review-author">${reviewer}</p>
+          <p class="user-review-comment">“${quote}”</p>
+        </article>`;
+      }).join("");
+      const imageHTML = imageUrl
+        ? `<img class="user-rec-product-image" src="${imageUrl}" alt="${title}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="user-rec-product-image-fallback" hidden>${ICONS[product.cat] || ""}</span>`
+        : `<span class="user-rec-product-image-fallback">${ICONS[product.cat] || ""}</span>`;
+
+      return `<article class="card user-recommendation-card" data-product="${title}" tabindex="0" aria-label="Ver detalhes de ${title}">
+        ${imageHTML}
+        <div class="user-rec-product-info">
+          <span class="user-rec-product-category">${category}</span>
+          <h3 class="user-rec-product-title">${title}</h3>
+          <p class="user-rec-product-price">R$ ${money(product.price)}</p>
+        </div>
+        <div class="user-review-list">${reviewsHTML}</div>
+      </article>`;
+    }).join("");
   }
 
   document.getElementById("catList").addEventListener("click", e => {
@@ -534,6 +597,52 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function openUserPage() {
+    if (!currentUser) {
+      document.getElementById("loginError").hidden = true;
+      openScreen("loginScreen");
+      return;
+    }
+    closeScreens();
+    showAppPage("user");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  document.getElementById("userGreeting").addEventListener("click", openUserPage);
+  document.getElementById("userPage").addEventListener("click", e => {
+    const action = e.target.closest("[data-user-action]");
+    if (!action) return;
+
+    document.querySelectorAll(".user-account-menu [data-user-action]").forEach(button => {
+      button.classList.toggle("active", button === action);
+    });
+
+    if (action.dataset.userAction === "summary") {
+      closeScreens();
+      showAppPage("user");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (action.dataset.userAction === "orders") {
+      navigateToOrders();
+    } else if (action.dataset.userAction === "favorites") {
+      openScreen("favoritesScreen");
+    } else if (action.dataset.userAction === "logout") {
+      const error = document.getElementById("userPageError");
+      error.hidden = true;
+      try {
+        localStorage.removeItem("user");
+      } catch (storageError) {
+        console.error("Não foi possível encerrar a sessão neste navegador.", storageError);
+        error.textContent = "Não foi possível encerrar a sessão neste navegador. Tente novamente.";
+        error.hidden = false;
+        return;
+      }
+      currentUser = null;
+      updateUserHeader();
+      showAppPage("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  });
+
   document.getElementById("ordersOpen").addEventListener("click", navigateToOrders);
   document.getElementById("ordersBack").addEventListener("click", () => {
     showAppPage("home");
@@ -564,42 +673,90 @@
 
   let productOrigin = "home";
 
+  function renderProductReviews() {
+    const quotePool = [...recommendationReviews];
+    document.getElementById("productReviews").innerHTML = Array.from({ length: 3 }, () => {
+      const quoteIndex = Math.floor(Math.random() * quotePool.length);
+      const quote = escapeHTML(quotePool.splice(quoteIndex, 1)[0]);
+      const reviewer = escapeHTML(recommendationReviewers[Math.floor(Math.random() * recommendationReviewers.length)]);
+      return `<article class="product-review">
+        <div class="product-review-meta">
+          <span class="product-review-stars" role="img" aria-label="5 de 5 estrelas">★★★★★</span>
+          <span class="product-review-demo">Relato fictício</span>
+        </div>
+        <strong>${reviewer}</strong>
+        <p>“${quote}”</p>
+      </article>`;
+    }).join("");
+  }
+
+  function renderRelatedProducts(currentProduct) {
+    const products = getRandomProducts(4, catalog.filter(product => product.title !== currentProduct.title));
+    document.getElementById("relatedProductsGrid").innerHTML = products.map(cardHTML).join("");
+    syncFavoriteButtons();
+  }
+
   function openProduct(title) {
     const product = catalog.find(item => item.title === title);
     if (!product) return;
     productOrigin = document.getElementById("categoryPage").hidden ? "home" : "category";
-    document.getElementById("productPageContent").innerHTML = `<section class="market-product-main"><div class="product-gallery"><div class="product-gallery-main">${ICONS[product.cat]}</div><div class="gallery-thumbs"><button class="active" type="button">${ICONS[product.cat]}</button><button type="button">${ICONS[product.cat]}</button><button type="button">${ICONS[product.cat]}</button></div></div><div class="product-information"><span class="product-detail-category">Novo · ${LABELS[product.cat]}</span><h1 id="productDetailTitle">${product.title}</h1><div class="product-rating" role="img" aria-label="${product.rating} de 5 estrelas, ${product.reviews} avaliações"><span aria-hidden="true">★★★★★</span> ${product.rating} (${product.reviews} avaliações)</div><div class="market-price"><small>R$</small> ${money(product.price)}</div><div class="market-installment">em até 6x de R$ ${money(product.price / 6)} sem juros</div><p class="product-detail-copy">Equipamento selecionado para pilotos amadores e profissionais, com estrutura voltada a segurança, desempenho e facilidade de manutenção.</p><div class="product-benefit"><strong>Chegará grátis</strong><span>entrega estimada para toda região Sudeste</span></div><div class="product-benefit"><strong>Devolução grátis</strong><span>até 30 dias após receber o produto</span></div></div></section><aside class="market-buy-box"><span class="stock-status">Estoque disponível</span><div class="buy-quantity">Quantidade: <strong>1 unidade</strong></div><button class="buy-primary" type="button" data-detail-add="${product.title}">Adicionar ao carrinho</button><button class="buy-secondary" type="button" data-detail-buy="${product.title}">Comprar agora</button><p>Compra demonstrativa · pagamento seguro</p></aside>`;
+    document.getElementById("productDetailTitle").textContent = product.title;
+    document.getElementById("productDetailPrice").textContent = money(product.price);
+    document.getElementById("productBreadcrumbCategory").textContent = LABELS[product.cat] || "Produtos";
+    document.getElementById("productInstallment").textContent = `em 10x de R$ ${money(product.price / 10)} sem juros`;
+    document.getElementById("productDescription").textContent =
+      `${product.title} é uma opção selecionada da categoria ${LABELS[product.cat] || "automobilismo"}, pensada para oferecer desempenho, qualidade e confiança nos seus treinos e competições. Confira as especificações do produto antes de finalizar seu pedido.`;
+    document.getElementById("productQuantity").value = "1";
+    const productGallery = document.getElementById("productGalleryMain");
+    productGallery.innerHTML = ICONS[product.cat] || "";
+    productGallery.classList.remove("zoomed");
     if (product.imageUrl) {
-      const productGallery = document.querySelector(".product-gallery-main");
       addProductImage(productGallery, product);
       productGallery.setAttribute("role", "button");
       productGallery.setAttribute("tabindex", "0");
       productGallery.setAttribute("aria-label", `Ampliar imagem de ${product.title}`);
-      const toggleImageZoom = () => {
-        const zoomed = productGallery.classList.toggle("zoomed");
-        productGallery.setAttribute("aria-label", `${zoomed ? "Reduzir" : "Ampliar"} imagem de ${product.title}`);
-      };
-      productGallery.addEventListener("click", toggleImageZoom);
-      productGallery.addEventListener("keydown", event => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        toggleImageZoom();
-      });
-      document.querySelector(".gallery-thumbs").hidden = true;
     }
+    renderProductReviews();
+    renderRelatedProducts(product);
     showAppPage("product");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  const productGallery = document.getElementById("productGalleryMain");
+  function toggleProductImageZoom() {
+    if (!productGallery.querySelector(".product-photo")) return;
+    const zoomed = productGallery.classList.toggle("zoomed");
+    productGallery.setAttribute("aria-label", `${zoomed ? "Reduzir" : "Ampliar"} imagem do produto`);
+  }
+  productGallery.addEventListener("click", toggleProductImageZoom);
+  productGallery.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    toggleProductImageZoom();
+  });
 
   document.getElementById("productPageContent").addEventListener("click", e => {
     const add = e.target.closest("[data-detail-add]");
     const buy = e.target.closest("[data-detail-buy]");
     if (!add && !buy) return;
-    const title = add ? add.dataset.detailAdd : buy.dataset.detailBuy;
-    cart.set(title, (cart.get(title) || 0) + 1);
+    const title = document.getElementById("productDetailTitle").textContent;
+    const quantityInput = document.getElementById("productQuantity");
+    if (!quantityInput.reportValidity()) return;
+    const quantity = Number(quantityInput.value);
+    cart.set(title, (cart.get(title) || 0) + quantity);
     updateCart();
-    if (buy) document.getElementById("cartOpen").click();
+    if (buy) openCheckout();
+    else showCartToast(`${quantity} item(ns) adicionado(s) ao carrinho.`);
   });
+
+  let cartToastTimer;
+  function showCartToast(message) {
+    const toast = document.getElementById("cartToast");
+    toast.textContent = message;
+    toast.hidden = false;
+    window.clearTimeout(cartToastTimer);
+    cartToastTimer = window.setTimeout(() => { toast.hidden = true; }, 2600);
+  }
 
   document.getElementById("productBack").addEventListener("click", () => showAppPage(productOrigin));
 
@@ -664,16 +821,18 @@
   updateHeroRotation();
   document.querySelectorAll("[data-carousel-category]").forEach(button => button.addEventListener("click", () => openCategoryPage(button.dataset.carouselCategory)));
 
-  document.body.addEventListener("click", e => {
-    if (!e.target.closest("[data-open-checkout]")) return;
+  function openCheckout() {
     closeScreens();
     const products = [...cart.entries()].map(([title, quantity]) => ({ product: catalog.find(item => item.title === title), quantity })).filter(item => item.product);
-    document.getElementById("checkoutItems").innerHTML = products.map(({ product, quantity }) => `<div class="checkout-item"><span>${quantity}x ${product.title}</span><strong>R$ ${money(product.price * quantity)}</strong></div>`).join("");
+    document.getElementById("checkoutItems").innerHTML = products.map(({ product, quantity }) => `<div class="checkout-item"><span>${quantity}x ${escapeHTML(product.title)}</span><strong>R$ ${money(product.price * quantity)}</strong></div>`).join("");
     document.getElementById("checkoutTotal").textContent = `R$ ${money(products.reduce((sum, item) => sum + item.product.price * item.quantity, 0))}`;
     document.getElementById("checkoutForm").reset();
     syncPaymentSelection();
     showAppPage("checkout");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.body.addEventListener("click", e => {
+    if (e.target.closest("[data-open-checkout]")) openCheckout();
   });
   const checkoutForm = document.getElementById("checkoutForm");
   const cardFields = document.getElementById("cardFields");

@@ -48,10 +48,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         Entrar
       </button>
-      <span class="header-action header-greeting" id="userGreeting" hidden>
+      <button type="button" class="header-action header-greeting" id="userGreeting" aria-label="Abrir minha conta" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
         <span data-user-name></span>
-      </span>
+      </button>
       <button type="button" class="header-action" id="ordersOpen" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v10L12 22l-9-4.5z"/><path d="m3.5 7.7 8.5 4.5 8.5-4.5M12 12.2V22"/></svg>
         Meus Pedidos
@@ -121,9 +121,60 @@
 </main>
 
 <main id="productPage" class="product-page" tabindex="-1" hidden>
-  <div class="container">
-    <button class="back-home" id="productBack" type="button">&larr; Voltar aos produtos</button>
-    <div id="productPageContent" class="product-page-layout"></div>
+  <div class="product-detail-container">
+    <nav class="product-breadcrumb" aria-label="Navegação do produto">
+      <button class="product-breadcrumb-back" id="productBack" type="button">&larr; Voltar</button>
+      <span>Automotivo</span>
+      <span aria-hidden="true">&rsaquo;</span>
+      <span id="productBreadcrumbCategory">Produtos</span>
+    </nav>
+
+    <div id="productPageContent" class="product-detail-layout">
+      <div class="product-detail-main-column">
+        <div class="product-gallery-main product-detail-image" id="productGalleryMain"></div>
+        <section class="product-description-card" aria-labelledby="productDescriptionTitle">
+          <h2 id="productDescriptionTitle">Descrição</h2>
+          <p id="productDescription"></p>
+        </section>
+        <section class="product-reviews-card" aria-labelledby="productReviewsTitle">
+          <h2 id="productReviewsTitle">Opiniões sobre o produto</h2>
+          <div class="product-reviews-summary">
+            <strong>4,8</strong>
+            <span class="product-review-stars" role="img" aria-label="5 de 5 estrelas">★★★★★</span>
+            <span class="product-review-count">Avaliações demonstrativas</span>
+          </div>
+          <p class="product-reviews-disclaimer">Comentários fictícios para demonstração; não representam avaliações ou compras reais.</p>
+          <div id="productReviews" class="product-reviews"></div>
+        </section>
+      </div>
+
+      <aside class="product-buy-box" aria-labelledby="productDetailTitle">
+        <span class="product-condition">Novo <span aria-hidden="true">|</span> +1000 vendidos</span>
+        <h1 id="productDetailTitle">Produto</h1>
+        <div class="product-price"><small>R$</small><span id="productDetailPrice">0,00</span></div>
+        <p id="productInstallment" class="product-installment"></p>
+        <p class="product-shipping">Chegará grátis amanhã</p>
+        <label class="product-quantity-label" for="productQuantity">Quantidade</label>
+        <div class="product-quantity-control">
+          <input id="productQuantity" type="number" min="1" max="10" value="1" inputmode="numeric">
+          <span>unidade(s)</span>
+        </div>
+        <button class="buy-primary" type="button" data-detail-buy>Comprar agora</button>
+        <button class="buy-secondary" type="button" data-detail-add>Adicionar ao carrinho</button>
+        <div class="product-guarantee">
+          <strong>Compra Garantida</strong>
+          <p>Receba o produto que está esperando ou devolvemos o dinheiro.</p>
+        </div>
+        <p class="product-demo-notice">Loja demonstrativa: frete, vendas e condições são ilustrativos.</p>
+      </aside>
+    </div>
+
+    <div id="cartToast" class="cart-toast" role="status" aria-live="polite" hidden></div>
+
+    <section class="product-related" aria-labelledby="relatedProductsTitle">
+      <h2 id="relatedProductsTitle">Quem viu este produto também comprou</h2>
+      <div id="relatedProductsGrid" class="grid related-products-grid"></div>
+    </section>
   </div>
 </main>
 
@@ -147,6 +198,60 @@
       <button class="back-home" id="ordersBack" type="button">&larr; Voltar para a loja</button>
     </header>
     <div id="ordersList" class="orders-list" aria-live="polite"></div>
+  </div>
+</main>
+
+<main id="userPage" class="user-page hidden" tabindex="-1" hidden>
+  <div class="user-page-container">
+    <h1 class="user-page-title" id="userPageTitle">Minha Conta</h1>
+    <div class="user-account-layout">
+      <aside class="user-sidebar" aria-label="Menu da conta">
+        <div class="user-sidebar-profile">
+          <span class="user-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+          </span>
+          <div><strong id="userSidebarName">Sua conta</strong><span>Minha conta</span></div>
+        </div>
+        <nav class="user-account-menu" aria-label="Minha conta">
+          <button type="button" class="active" data-user-action="summary">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg>
+            Resumo
+          </button>
+          <button type="button" data-user-action="orders">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v10L12 22l-9-4.5z"/><path d="m3.5 7.7 8.5 4.5 8.5-4.5M12 12.2V22"/></svg>
+            Meus Pedidos
+          </button>
+          <button type="button" data-user-action="favorites">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            Favoritos
+          </button>
+          <button type="button" class="user-logout" data-user-action="logout">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg>
+            Sair
+          </button>
+        </nav>
+      </aside>
+
+      <section class="user-main-content" aria-labelledby="userWelcomeTitle">
+        <p id="userPageError" class="checkout-error" role="alert" hidden></p>
+        <div class="user-welcome-card">
+          <span class="user-card-kicker">Sua conta Kart to Top</span>
+          <h2 id="userWelcomeTitle">Olá, <span id="userPageName">piloto</span>!</h2>
+          <p>Encontre equipamentos selecionados para a sua próxima volta.</p>
+        </div>
+        <section class="user-recommendations" aria-labelledby="recommendationsTitle">
+          <div class="user-recommendations-heading">
+            <div>
+              <span class="user-card-kicker">Seleção para você</span>
+              <h2 id="recommendationsTitle">Recomendados para você</h2>
+            </div>
+            <span class="recommendation-demo-label">Conteúdo demonstrativo</span>
+          </div>
+          <p class="recommendations-disclaimer">Produtos e avaliações abaixo são gerados para demonstração. Os comentários são fictícios e não representam compras ou clientes reais.</p>
+          <div id="recommendedGrid" class="recommended-grid" aria-live="polite"></div>
+        </section>
+      </section>
+    </div>
   </div>
 </main>
 

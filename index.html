@@ -56,6 +56,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v10L12 22l-9-4.5z"/><path d="m3.5 7.7 8.5 4.5 8.5-4.5M12 12.2V22"/></svg>
         Meus Pedidos
       </button>
+      <button type="button" class="header-action" id="sellerDashboardOpen" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M3 10.5 12 4l9 6.5V21H3z"/><path d="M8 21v-7h8v7M3 10.5h18"/></svg>
+        <span>Painel Vendedor</span>
+      </button>
+      <button type="button" class="header-action" id="adminDashboardOpen" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.5 2.6-1.7-.7a8.4 8.4 0 0 1-1.7 1l-.3 1.9h-3l-.3-1.9a8.4 8.4 0 0 1-1.7-1l-1.7.7-1.5-2.6 1.4-1.1a7.6 7.6 0 0 1 0-2l-1.4-1.1 1.5-2.6 1.7.7a8.4 8.4 0 0 1 1.7-1l.3-1.9h3l.3 1.9a8.4 8.4 0 0 1 1.7 1l1.7-.7 1.5 2.6-1.4 1.1a7.6 7.6 0 0 1 0 2Z" transform="translate(-1 -1) scale(1.08)"/></svg>
+        <span>Painel Admin</span>
+      </button>
       <button type="button" class="header-action" id="favoritesOpen">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
         Favoritos
@@ -259,62 +267,235 @@
   <div class="checkout-container">
     <header class="checkout-head">
       <div>
-        <span>Finalização segura</span>
-        <h1 id="checkoutTitle">Como você quer pagar?</h1>
+        <span>Checkout demonstrativo</span>
+        <h1 id="checkoutTitle">Finalize sua compra</h1>
       </div>
       <button class="checkout-back" id="checkoutBack" type="button">Voltar à loja</button>
     </header>
     <form id="checkoutForm" class="checkout-layout">
-      <section class="checkout-payment" aria-labelledby="paymentTitle">
-        <h2 id="paymentTitle">Forma de pagamento</h2>
-        <label class="payment-option">
-          <input type="radio" name="payment" value="card">
-          <span class="payment-option-icon" aria-hidden="true">▰</span>
-          <span class="payment-option-copy"><strong>Novo cartão de crédito</strong><small>Crédito à vista ou parcelado</small></span>
-          <span class="payment-radio" aria-hidden="true"></span>
-        </label>
-        <div id="cardFields" class="card-fields" hidden>
-          <label class="card-field-wide">Número do cartão
-            <input name="cardNumber" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000">
-          </label>
-          <label>Nome impresso no cartão
-            <input name="cardName" type="text" autocomplete="cc-name" placeholder="Como aparece no cartão">
-          </label>
-          <div class="card-field-pair">
-            <label>Validade
-              <input name="cardExpiry" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA">
-            </label>
-            <label>CVV
-              <input name="cardCvv" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="000">
-            </label>
-          </div>
-        </div>
-        <label class="payment-option">
-          <input type="radio" name="payment" value="pix" checked>
-          <span class="payment-option-icon pix-icon" aria-hidden="true">◇</span>
-          <span class="payment-option-copy"><strong>Pix</strong><small>Aprovação imediata</small></span>
-          <span class="payment-radio" aria-hidden="true"></span>
-        </label>
-        <p class="checkout-demo-note">Demonstração de interface: nenhum pagamento real será processado. Não informe dados reais do cartão.</p>
-      </section>
+      <div class="checkout-main-column">
+        <section class="checkout-card checkout-products" aria-labelledby="checkoutProductsTitle">
+          <h2 id="checkoutProductsTitle">Produtos</h2>
+          <div id="checkoutProductList" class="checkout-product-list" aria-live="polite"></div>
+        </section>
 
-      <aside class="checkout-summary" aria-labelledby="checkoutSummaryTitle">
+        <section class="checkout-card checkout-delivery" aria-labelledby="deliveryTitle">
+          <h2 id="deliveryTitle">Forma de entrega</h2>
+          <label class="delivery-option">
+            <input type="radio" name="delivery" value="free" checked>
+            <span class="delivery-radio" aria-hidden="true"></span>
+            <span class="delivery-option-copy"><strong id="deliveryOptionTitle">Frete Grátis</strong><small>Chega amanhã · endereço demonstrativo</small></span>
+            <span id="deliveryOptionPrice" class="delivery-price">Grátis</span>
+          </label>
+          <label class="delivery-option">
+            <input type="radio" name="delivery" value="pickup">
+            <span class="delivery-radio" aria-hidden="true"></span>
+            <span class="delivery-option-copy"><strong>Retirada</strong><small>Retire em um ponto parceiro</small></span>
+            <span class="delivery-price">Grátis</span>
+          </label>
+          <div class="checkout-address">
+            <strong>Endereço de demonstração</strong>
+            <span>Av. Paulista, 1000 · Bela Vista</span>
+            <span>São Paulo - SP · 01310-100</span>
+          </div>
+        </section>
+
+        <section class="checkout-card checkout-payment" aria-labelledby="paymentTitle">
+          <h2 id="paymentTitle">Meios de pagamento</h2>
+          <label class="payment-option">
+            <input type="radio" name="payment" value="card">
+            <span class="payment-option-icon" aria-hidden="true">▰</span>
+            <span class="payment-option-copy"><strong>Cartão de Crédito</strong><small>Dados fictícios apenas para demonstração</small></span>
+            <span class="payment-radio" aria-hidden="true"></span>
+          </label>
+          <div id="cardFields" class="card-fields" hidden>
+            <p class="checkout-demo-note">Não informe dados reais. Estes campos não enviam nem armazenam dados de cartão.</p>
+            <label class="card-field-wide">Número do cartão (fictício)
+              <input name="cardNumber" type="text" inputmode="numeric" autocomplete="off" placeholder="0000 0000 0000 0000">
+            </label>
+            <label>Nome impresso no cartão
+              <input name="cardName" type="text" autocomplete="off" placeholder="Nome de demonstração">
+            </label>
+            <div class="card-field-pair">
+              <label>Validade
+                <input name="cardExpiry" type="text" inputmode="numeric" autocomplete="off" placeholder="MM/AA">
+              </label>
+              <label>CVV fictício
+                <input name="cardCvv" type="text" inputmode="numeric" autocomplete="off" placeholder="000">
+              </label>
+            </div>
+          </div>
+
+          <label class="payment-option">
+            <input type="radio" name="payment" value="pix" checked>
+            <span class="payment-option-icon pix-icon" aria-hidden="true">◇</span>
+            <span class="payment-option-copy"><strong>Pix</strong><small>Gere um QR Code demonstrativo</small></span>
+            <span class="payment-radio" aria-hidden="true"></span>
+          </label>
+          <p class="checkout-demo-note">Demonstração acadêmica: nenhum pagamento real será processado ou confirmado.</p>
+        </section>
+
+        <section class="checkout-card checkout-billing" aria-labelledby="billingTitle">
+          <h2 id="billingTitle">Faturamento</h2>
+          <div class="billing-data">
+            <span class="billing-avatar" aria-hidden="true">●</span>
+            <div><strong id="checkoutBuyerName">Cliente demonstrativo</strong><span id="checkoutBuyerCpf">CPF fictício: 000.000.000-00</span></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="checkout-summary checkout-summary-sticky" aria-labelledby="checkoutSummaryTitle">
         <h2 id="checkoutSummaryTitle">Resumo da compra</h2>
         <div id="checkoutItems" class="checkout-items" aria-live="polite"></div>
+        <div class="checkout-summary-line"><span>Subtotal dos produtos</span><strong id="checkoutSubtotal">R$ 0,00</strong></div>
+        <div class="checkout-summary-line"><span>Frete</span><strong id="checkoutShipping" class="free-shipping">Grátis</strong></div>
+        <div id="checkoutPixDiscount" class="checkout-summary-line checkout-pix-discount" hidden><span>Desconto Pix (7%)</span><strong id="checkoutPixDiscountValue">-R$ 0,00</strong></div>
         <div class="checkout-total"><span>Total</span><strong id="checkoutTotal">R$ 0,00</strong></div>
         <p id="checkoutError" class="checkout-error" role="alert" hidden></p>
-        <button id="confirmPayment" class="confirm-payment" type="submit">Confirmar Pagamento</button>
-        <p class="checkout-secure-note">Pagamento protegido</p>
+        <button id="confirmPayment" class="confirm-payment" type="submit">Pagar e finalizar</button>
+        <p class="checkout-secure-note">Simulação local: nenhuma cobrança será realizada.</p>
       </aside>
     </form>
   </div>
 </main>
 
+<div id="pixModal" class="pix-modal hidden" hidden aria-hidden="true">
+  <section class="pix-modal-card" role="dialog" aria-modal="true" aria-labelledby="pixModalTitle">
+    <button id="cancelPix" class="pix-modal-close" type="button" aria-label="Cancelar simulação Pix">&times;</button>
+    <span class="pix-demo-badge">Pix demonstrativo</span>
+    <h2 id="pixModalTitle">Escaneie o QR Code</h2>
+    <p class="pix-modal-disclaimer">Este QR Code contém apenas um identificador aleatório. Não é um código Pix válido e não pode receber pagamentos.</p>
+    <img id="pixQrCode" class="pix-qr-code" alt="QR Code demonstrativo, não pagável" width="200" height="200">
+    <label class="pix-copy-label" for="pixCopyCode">Código de demonstração</label>
+    <div class="pix-copy-row">
+      <input id="pixCopyCode" type="text" readonly autocomplete="off" aria-label="Código Pix demonstrativo">
+      <button id="copyPixCode" type="button">Copiar</button>
+    </div>
+    <p id="pixCopyStatus" class="pix-copy-status" role="status" aria-live="polite"></p>
+    <div class="pix-waiting" role="status" aria-live="polite">
+      <span class="pix-spinner" aria-hidden="true"></span>
+      <span>Aguardando conclusão da simulação...</span>
+    </div>
+    <p class="pix-modal-footnote">Após alguns segundos, a demonstração será concluída automaticamente. Nenhum banco ou webhook está conectado.</p>
+    <button class="pix-cancel-action" type="button" data-cancel-pix>Cancelar</button>
+  </section>
+</div>
+
+<main id="sellerDashboard" class="marketplace-dashboard hidden" tabindex="-1" hidden>
+  <aside class="marketplace-sidebar">
+    <a class="dashboard-brand" href="#" data-marketplace-home>KART<span>2</span>TOP</a>
+    <p class="dashboard-role">Área do vendedor</p>
+    <nav aria-label="Navegação do vendedor">
+      <button type="button" class="dashboard-nav-link active" data-dashboard-scroll="sellerAds">Meus anúncios</button>
+      <button type="button" class="dashboard-nav-link" data-dashboard-scroll="sellerProductForm">Anunciar produto</button>
+      <button type="button" class="dashboard-nav-link" data-marketplace-home>Voltar à loja</button>
+      <button type="button" class="dashboard-nav-link dashboard-logout" data-marketplace-logout>Sair</button>
+    </nav>
+  </aside>
+  <div class="marketplace-content">
+    <header class="dashboard-page-head">
+      <div><span>Painel do vendedor</span><h1>Olá, <span id="sellerDashboardName">Vendedor</span></h1></div>
+      <p>Os novos anúncios ficam pendentes até a revisão do administrador.</p>
+    </header>
+    <p class="marketplace-demo-note">Painel demonstrativo: os dados ficam neste navegador e não há controle de acesso em um servidor.</p>
+    <section class="dashboard-card" aria-labelledby="sellerFormTitle">
+      <div class="dashboard-card-head"><div><span class="dashboard-kicker">Novo anúncio</span><h2 id="sellerFormTitle">Anunciar novo produto</h2></div></div>
+      <p id="sellerFormMessage" class="dashboard-message" role="status" aria-live="polite" hidden></p>
+      <form id="sellerProductForm" class="seller-product-form">
+        <label>Título do anúncio<input name="title" type="text" maxlength="100" placeholder="Ex.: Luvas de pilotagem" required></label>
+        <label>Categoria
+          <select name="category" required>
+            <option value="">Selecione uma categoria</option>
+            <option value="kart">Karts &amp; Peças</option>
+            <option value="capacete">Capacetes</option>
+            <option value="pneu">Pneus &amp; Rodas</option>
+            <option value="indumentaria">Indumentária</option>
+            <option value="eletronica">Cronometragem</option>
+            <option value="oficina">Oficina &amp; Ferramentas</option>
+          </select>
+        </label>
+        <label>Preço (R$)<input name="price" type="number" min="0.01" step="0.01" placeholder="0,00" required></label>
+        <label>URL da imagem<input name="imageUrl" type="url" inputmode="url" placeholder="https://exemplo.com/produto.jpg" required></label>
+        <label class="seller-field-wide">Descrição<textarea name="description" rows="4" maxlength="1200" placeholder="Descreva as características e condições do produto." required></textarea></label>
+        <div class="seller-media-field seller-field-wide">
+          <button id="sellerMediaButton" class="seller-media-button" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="4"/></svg>
+            Adicionar Fotos e Vídeos
+          </button>
+          <input id="sellerMediaInput" class="hidden" type="file" accept="image/*,video/*" multiple>
+          <small id="sellerMediaNotice">Seleção local para demonstração; os arquivos não serão enviados.</small>
+        </div>
+        <button class="dashboard-primary seller-field-wide" type="submit">Enviar para aprovação</button>
+      </form>
+    </section>
+    <section id="sellerAds" class="dashboard-card" aria-labelledby="sellerAdsTitle">
+      <div class="dashboard-card-head"><div><span class="dashboard-kicker">Acompanhamento</span><h2 id="sellerAdsTitle">Meus anúncios</h2></div></div>
+      <div id="sellerProductsList" class="marketplace-product-list" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<main id="adminDashboard" class="marketplace-dashboard hidden" tabindex="-1" hidden>
+  <aside class="marketplace-sidebar">
+    <a class="dashboard-brand" href="#" data-marketplace-home>KART<span>2</span>TOP</a>
+    <p class="dashboard-role">Área administrativa</p>
+    <nav aria-label="Navegação administrativa">
+      <button type="button" class="dashboard-nav-link active" data-dashboard-scroll="adminProducts">Aprovações</button>
+      <button type="button" class="dashboard-nav-link" data-marketplace-home>Voltar à loja</button>
+      <button type="button" class="dashboard-nav-link dashboard-logout" data-marketplace-logout>Sair</button>
+    </nav>
+  </aside>
+  <div class="marketplace-content">
+    <header class="dashboard-page-head">
+      <div><span>Painel administrativo</span><h1>Revisão de anúncios</h1></div>
+      <p>Gerencie anúncios em todos os status.</p>
+    </header>
+    <p class="marketplace-demo-note">Painel demonstrativo: as permissões são simuladas no navegador e não substituem autenticação no servidor.</p>
+    <section id="adminProducts" class="dashboard-card" aria-labelledby="adminProductsTitle">
+      <div class="dashboard-card-head"><div><span class="dashboard-kicker">Moderação</span><h2 id="adminProductsTitle">Produtos aguardando aprovação</h2></div></div>
+      <p id="adminDashboardMessage" class="dashboard-message" role="status" aria-live="polite" hidden></p>
+      <div class="admin-status-overview" aria-label="Resumo dos anúncios por status">
+        <div><span>Em análise</span><strong id="adminPendingCount">0</strong></div>
+        <div><span>Aprovados</span><strong id="adminApprovedCount">0</strong></div>
+        <div><span>Recusados</span><strong id="adminRejectedCount">0</strong></div>
+      </div>
+      <section class="admin-status-section" aria-labelledby="adminPendingTitle">
+        <h3 id="adminPendingTitle">Em análise</h3>
+        <div id="adminProductList" class="marketplace-product-list" aria-live="polite"></div>
+      </section>
+      <section class="admin-status-section" aria-labelledby="adminApprovedTitle">
+        <h3 id="adminApprovedTitle">Aprovados</h3>
+        <div id="adminApprovedList" class="marketplace-product-list"></div>
+      </section>
+      <section class="admin-status-section" aria-labelledby="adminRejectedTitle">
+        <h3 id="adminRejectedTitle">Recusados</h3>
+        <div id="adminRejectedList" class="marketplace-product-list"></div>
+      </section>
+    </section>
+  </div>
+</main>
+
+<div id="rejectionModal" class="rejection-modal hidden" hidden>
+  <section class="rejection-modal-card" role="dialog" aria-modal="true" aria-labelledby="rejectionModalTitle">
+    <h2 id="rejectionModalTitle">Recusar anúncio</h2>
+    <p id="rejectionProductTitle"></p>
+    <form id="rejectionForm">
+      <label for="rejectionReason">Qual o motivo da recusa?</label>
+      <textarea id="rejectionReason" maxlength="500" required></textarea>
+      <p id="rejectionModalError" class="rejection-modal-error" role="status" hidden></p>
+      <div class="rejection-modal-actions">
+        <button id="cancelRejection" type="button">Cancelar</button>
+        <button class="marketplace-reject" type="submit">Confirmar recusa</button>
+      </div>
+    </form>
+  </section>
+</div>
+
 <main id="successPage" class="success-page hidden" tabindex="-1" hidden>
   <section class="success-card" aria-labelledby="successTitle">
     <div class="success-check" aria-hidden="true">✓</div>
-    <h1 id="successTitle">Pronto, seu pagamento foi aprovado!</h1>
-    <p>Seu pedido de demonstração foi concluído.</p>
+    <h1 id="successTitle">Simulação de checkout concluída</h1>
+    <p>Nenhum pagamento real foi processado ou aprovado.</p>
     <p id="successOrderId" class="success-order-id"></p>
     <button id="backToHome" class="confirm-payment" type="button">Voltar para a página inicial</button>
   </section>
@@ -330,6 +511,7 @@
       <form id="registerForm">
         <label>Nome<input name="name" type="text" autocomplete="name" placeholder="Seu nome" required></label>
         <label>E-mail<input name="email" type="email" autocomplete="email" placeholder="seu@email.com" required></label>
+        <label>CPF<input name="cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" pattern="[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}" title="Informe os 11 números do CPF." required></label>
         <label>Senha<input name="password" type="password" autocomplete="new-password" placeholder="Crie uma senha" minlength="6" required></label>
         <button class="panel-primary" type="submit">Criar Conta</button>
       </form>
@@ -464,11 +646,11 @@
     <button class="screen-close" type="button" data-close aria-label="Fechar">&times;</button>
     <div class="login-brand">KART<span>2</span>TOP</div>
     <h2 id="loginTitle">Entrar na sua conta</h2>
-    <p>Conta demonstrativa: nenhum dado é enviado. A sessão fica salva apenas neste navegador.</p>
+    <p>Conta demonstrativa: use vendedor@gmail.com ou adm@gmail.com; a senha pode ser qualquer uma. Nada é enviado ao servidor.</p>
     <p id="loginError" class="checkout-error" role="alert" hidden></p>
     <form id="loginForm">
-      <label>E-mail<input type="email" autocomplete="email" placeholder="seu@email.com" required></label>
-      <label>Senha<input type="password" autocomplete="current-password" placeholder="Sua senha" required></label>
+      <label>E-mail<input name="email" type="email" autocomplete="email" placeholder="seu@email.com" required></label>
+      <label>Senha<input name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required></label>
       <button class="panel-primary" type="submit">Entrar</button>
     </form>
     <button class="create-account" type="button">Criar uma conta</button>
@@ -494,8 +676,8 @@
 <div id="paymentLoading" class="payment-loading hidden" hidden aria-hidden="true">
   <div class="loading-card" role="status" aria-live="polite">
     <span class="payment-spinner" aria-hidden="true"></span>
-    <strong>Processando pagamento...</strong>
-    <span>Aguarde um instante</span>
+    <strong>Concluindo a simulação...</strong>
+    <span>Nenhum pagamento real será processado.</span>
   </div>
 </div>
 

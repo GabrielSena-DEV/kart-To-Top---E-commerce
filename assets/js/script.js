@@ -71,6 +71,24 @@
   const unsplashImage = photoId => `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=900&q=80&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D`;
 
   const money = value => value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function formatCPF(value) {
+    const digits = String(value).replace(/\D/g, "").slice(0, 11);
+    if (digits.length > 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    if (digits.length > 6) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    if (digits.length > 3) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    return digits;
+  }
+
+  function calculateCheckoutTotals(subtotal, paymentMethod = "card", deliveryMethod = "free") {
+    const subtotalCents = Math.round(subtotal * 100);
+    const shippingCents = deliveryMethod === "pickup" || subtotalCents >= 5000 ? 0 : 2500;
+    const pixDiscountCents = paymentMethod === "pix" ? Math.round(subtotalCents * 0.07) : 0;
+    return {
+      shipping: shippingCents / 100,
+      pixDiscount: pixDiscountCents / 100,
+      total: (subtotalCents + shippingCents - pixDiscountCents) / 100
+    };
+  }
 
   function makeProduct(cat, i) {
     if (cat === "kart") {
@@ -96,27 +114,81 @@
       discount: old ? Math.round((old - price) / old * 100) : null };
   }
 
-  const catalog = [];
-  CATS.forEach(cat => { for (let i = 0; i < 6; i++) catalog.push(makeProduct(cat, i)); });
+  const defaultCatalog = [];
+  CATS.forEach(cat => { for (let i = 0; i < 6; i++) defaultCatalog.push(makeProduct(cat, i)); });
+
+  function isCatalogProduct(product) {
+    if (!product || typeof product !== "object" || typeof product.title !== "string" ||
+        !product.title.trim() || !CATS.includes(product.cat) || !Number.isFinite(product.price) || product.price <= 0 ||
+        typeof product.imageUrl !== "string" ||
+        (product.old != null && (!Number.isFinite(product.old) || product.old < product.price)) ||
+        (product.discount != null && (!Number.isFinite(product.discount) || product.discount < 0)) ||
+        !Number.isFinite(Number(product.rating)) || !Number.isInteger(product.reviews) || product.reviews < 0) {
+      return false;
+    }
+    try {
+      const imageURL = new URL(product.imageUrl);
+      return imageURL.protocol === "https:" || imageURL.protocol === "http:";
+    } catch {
+      return false;
+    }
+  }
+
+  function loadCatalog() {
+    try {
+      const savedCatalog = localStorage.getItem("catalog");
+      if (savedCatalog === null) {
+        localStorage.setItem("catalog", JSON.stringify(defaultCatalog));
+        return [...defaultCatalog];
+      }
+      const parsedCatalog = JSON.parse(savedCatalog);
+      if (!Array.isArray(parsedCatalog) || !parsedCatalog.every(isCatalogProduct)) {
+        throw new TypeError("O formato salvo para o catálogo é inválido.");
+      }
+      return parsedCatalog;
+    } catch (error) {
+      console.error("Não foi possível carregar o catálogo salvo. O catálogo padrão será exibido.", error);
+      return [...defaultCatalog];
+    }
+  }
+
+  const catalog = loadCatalog();
 
   function cardHTML(p) {
-    return `<article class="card" data-cat="${p.cat}" data-product="${p.title}" tabindex="0" aria-label="Ver detalhes de ${p.title}">
+    const title = escapeHTML(p.title);
+    const category = escapeHTML(LABELS[p.cat] || "Automobilismo");
+    const imageURL = escapeHTML(p.imageUrl || "");
+    const rating = escapeHTML(p.rating || "0.0");
+    const reviewCount = Number.isInteger(p.reviews) ? p.reviews : 0;
+    const discount = Number.isFinite(p.discount) ? p.discount : null;
+    const oldPrice = Number.isFinite(p.old) ? p.old : null;
+    return `<article class="card" data-cat="${escapeHTML(p.cat)}" data-product="${title}" tabindex="0" aria-label="Ver detalhes de ${title}">
       <div class="card-media">
-        ${p.discount ? `<span class="badge">-${p.discount}%</span>` : ""}
-        <button class="fav" aria-label="Adicionar aos favoritos: ${p.title}" aria-pressed="false" data-favorite><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>
-        ${p.imageUrl ? `<img class="product-photo" src="${p.imageUrl}" alt="${p.title}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="product-photo-fallback" hidden>${ICONS[p.cat]}</span>` : ICONS[p.cat]}
+        ${discount ? `<span class="badge">-${discount}%</span>` : ""}
+        <button class="fav" aria-label="Adicionar aos favoritos: ${title}" aria-pressed="false" data-favorite><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>
+        ${imageURL ? `<img class="product-photo" src="${imageURL}" alt="${title}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="product-photo-fallback" hidden>${ICONS[p.cat]}</span>` : ICONS[p.cat]}
       </div>
       <div class="card-body">
-        <div class="card-cat">${LABELS[p.cat]}</div><div class="card-title">${p.title}</div>
-        <div class="stars" role="img" aria-label="${p.rating} de 5 estrelas, ${p.reviews} avaliações"><span class="fill" aria-hidden="true">★★★★★</span> <span aria-hidden="true">${p.rating} (${p.reviews})</span></div>
-        <div class="price-row">${p.old ? `<div class="price-old">R$ ${money(p.old)}</div>` : ""}<div class="price"><small>R$</small> ${money(p.price)}</div><div class="installment">em até 6x sem juros</div></div>
+        <div class="card-cat">${category}</div><div class="card-title">${title}</div>
+        <div class="stars" role="img" aria-label="${rating} de 5 estrelas, ${reviewCount} avaliações"><span class="fill" aria-hidden="true">★★★★★</span> <span aria-hidden="true">${rating} (${reviewCount})</span></div>
+        <div class="price-row">${oldPrice ? `<div class="price-old">R$ ${money(oldPrice)}</div>` : ""}<div class="price"><small>R$</small> ${money(p.price)}</div><div class="installment">em até 6x sem juros</div></div>
         <button class="add-btn" data-add>Adicionar ao carrinho</button>
       </div>
     </article>`;
   }
 
-  const deals = catalog.filter(p => p.discount).slice(0, 8);
-  document.getElementById("dealsRow").innerHTML = deals.map(p => `<article class="deal-card card" data-product="${p.title}" tabindex="0" aria-label="Ver detalhes de ${p.title}"><div class="deal-timer"><span>Termina em <b>04:12:36</b></span></div><div class="card-media"><span class="badge">-${p.discount}%</span><button class="fav" data-favorite aria-label="Adicionar aos favoritos: ${p.title}" aria-pressed="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>${ICONS[p.cat]}</div><div class="card-body"><div class="card-cat">${LABELS[p.cat]}</div><div class="card-title">${p.title}</div><div class="price-row"><div class="price-old">R$ ${money(p.old)}</div><div class="price"><small>R$</small> ${money(p.price)}</div></div><button class="add-btn" data-add>Adicionar ao carrinho</button></div></article>`).join("");
+  function renderDeals() {
+    const deals = catalog.filter(product => Number.isFinite(product.discount) && product.discount > 0).slice(0, 8);
+    document.getElementById("dealsRow").innerHTML = deals.map(product => {
+      const title = escapeHTML(product.title);
+      const category = escapeHTML(LABELS[product.cat]);
+      return `<article class="deal-card card" data-product="${title}" tabindex="0" aria-label="Ver detalhes de ${title}"><div class="deal-timer"><span>Termina em <b>04:12:36</b></span></div><div class="card-media"><span class="badge">-${product.discount}%</span><button class="fav" data-favorite aria-label="Adicionar aos favoritos: ${title}" aria-pressed="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1 1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>${ICONS[product.cat]}</div><div class="card-body"><div class="card-cat">${category}</div><div class="card-title">${title}</div><div class="price-row"><div class="price-old">R$ ${money(product.old)}</div><div class="price"><small>R$</small> ${money(product.price)}</div></div><button class="add-btn" data-add>Adicionar ao carrinho</button></div></article>`;
+    }).join("");
+    deals.forEach(product => {
+      const card = [...document.querySelectorAll("#dealsRow .card")].find(item => item.dataset.product === product.title);
+      if (card) addProductImage(card.querySelector(".card-media"), product);
+    });
+  }
 
   function addProductImage(container, product) {
     if (!container || !product.imageUrl) return;
@@ -137,10 +209,7 @@
     if (existingIcon) existingIcon.remove();
   }
 
-  deals.forEach(product => {
-    const card = [...document.querySelectorAll("#dealsRow .card")].find(item => item.dataset.product === product.title);
-    if (card) addProductImage(card.querySelector(".card-media"), product);
-  });
+  renderDeals();
 
   let activeCategory = "todos";
   let cartCount = 0;
@@ -189,9 +258,17 @@
       const savedUser = localStorage.getItem("user");
       if (!savedUser) return null;
       const user = JSON.parse(savedUser);
-      return user && user.logado === true && typeof user.nome === "string" && user.nome.trim()
-        ? { nome: user.nome.trim(), logado: true }
-        : null;
+      if (!user || user.logado !== true || typeof user.nome !== "string" || !user.nome.trim()) return null;
+      const normalizedUser = {
+        nome: user.nome.trim(),
+        email: typeof user.email === "string" ? user.email.trim().toLowerCase() : "",
+        role: ["admin", "seller", "buyer"].includes(user.role) ? user.role : "buyer",
+        logado: true
+      };
+      if (typeof user.cpf === "string" && user.cpf.replace(/\D/g, "").length === 11) {
+        normalizedUser.cpf = formatCPF(user.cpf);
+      }
+      return normalizedUser;
     } catch (error) {
       console.error("Não foi possível carregar o usuário salvo.", error);
       return null;
@@ -273,6 +350,9 @@
           dateStyle: "long",
           timeStyle: "short"
         }).format(orderDate);
+        const orderStatus = order.status === "Pagamento Aprovado"
+          ? "Simulação concluída (não pago)"
+          : typeof order.status === "string" ? order.status : "Pedido registrado";
         const itemsHTML = order.items.map(item => {
           if (!item || typeof item.title !== "string" || !Number.isInteger(item.quantity) || item.quantity < 1 ||
               !Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
@@ -283,7 +363,7 @@
         return `<article class="order-card">
           <header class="order-card-head">
             <div><h2>Pedido ${escapeHTML(order.id)}</h2><p class="order-card-date">${escapeHTML(formattedDate)}</p></div>
-            <span class="order-status">Pagamento Aprovado</span>
+            <span class="order-status">${escapeHTML(orderStatus)}</span>
           </header>
           <div class="order-items">${itemsHTML}</div>
           <div class="order-total"><span>Total</span><strong>R$ ${money(order.total)}</strong></div>
@@ -302,15 +382,284 @@
   }
 
   const categoryNames = { todos: "Todos", kart: "Karts & Peças", capacete: "Capacetes", pneu: "Pneus & Rodas", indumentaria: "Indumentária", eletronica: "Cronometragem", oficina: "Oficina & Ferramentas", ofertas: "Ofertas" };
+  const MARKETPLACE_STATUS_LABELS = {
+    pendente: "Em análise",
+    aprovado: "Aprovado",
+    recusado: "Recusado"
+  };
+
+  function initializePendingProducts() {
+    if (localStorage.getItem("pendingProducts") !== null) return;
+
+    const sellerEmail = "vendedor@gmail.com";
+    const sellerName = "Vendedor";
+    const existingGloves = catalog.find(product => product.title.toLocaleLowerCase() === "luvas de chuva kart");
+    const approvedProduct = {
+      ...(existingGloves || makeProduct("indumentaria", 5)),
+      id: "demo-approved-gloves",
+      title: "Luvas de chuva Kart",
+      sellerEmail,
+      sellerName,
+      description: "Luvas impermeáveis para manter a aderência e o conforto em treinos com chuva.",
+      status: "aprovado",
+      createdAt: new Date().toISOString()
+    };
+    const samples = [
+      {
+        id: "demo-pending-suit",
+        title: "Macacão Sparco Azul",
+        cat: "indumentaria",
+        price: 1899.9,
+        imageUrl: unsplashImage(PRODUCT_IMAGES.indumentaria[0]),
+        old: null,
+        discount: null,
+        rating: "0.0",
+        reviews: 0,
+        description: "Macacão azul para kart, com tecido resistente e modelagem confortável para os treinos.",
+        status: "pendente",
+        sellerEmail,
+        sellerName,
+        createdAt: new Date().toISOString()
+      },
+      approvedProduct,
+      {
+        id: "demo-rejected-engine",
+        title: "Motor 125cc Usado",
+        cat: "kart",
+        price: 2450,
+        imageUrl: kartProducts[0].imageUrl,
+        old: null,
+        discount: null,
+        rating: "0.0",
+        reviews: 0,
+        description: "Motor usado para kart, anunciado para demonstração de análise.",
+        status: "recusado",
+        rejectionReason: "Produtos usados requerem nota fiscal anexada na descrição.",
+        sellerEmail,
+        sellerName,
+        createdAt: new Date().toISOString()
+      }
+    ];
+    const catalogHasGloves = catalog.some(product =>
+      product.title.toLocaleLowerCase() === approvedProduct.title.toLocaleLowerCase()
+    );
+    const nextCatalog = catalogHasGloves ? [...catalog] : [...catalog, approvedProduct];
+    const previousCatalog = localStorage.getItem("catalog");
+    try {
+      localStorage.setItem("catalog", JSON.stringify(nextCatalog));
+      localStorage.setItem("pendingProducts", JSON.stringify(samples));
+      catalog.splice(0, catalog.length, ...nextCatalog);
+    } catch (error) {
+      try {
+        localStorage.removeItem("pendingProducts");
+        if (previousCatalog === null) localStorage.removeItem("catalog");
+        else localStorage.setItem("catalog", previousCatalog);
+      } catch (rollbackError) {
+        console.error("Não foi possível restaurar os dados anteriores do marketplace.", rollbackError);
+      }
+      console.error("Não foi possível inicializar os anúncios de demonstração.", error);
+    }
+  }
+
+  function readPendingProductsFromStorage() {
+    const savedProducts = localStorage.getItem("pendingProducts");
+    if (savedProducts === null) return [];
+    const products = JSON.parse(savedProducts);
+    if (!Array.isArray(products) || !products.every(product =>
+      isCatalogProduct(product) &&
+      typeof product.id === "string" &&
+      typeof product.sellerEmail === "string" &&
+      Object.prototype.hasOwnProperty.call(MARKETPLACE_STATUS_LABELS, product.status)
+    )) {
+      throw new TypeError("O formato salvo para os anúncios do marketplace é inválido.");
+    }
+    return products;
+  }
+
+  initializePendingProducts();
+
+  function setMarketplaceMessage(element, message, isError = false) {
+    element.textContent = message;
+    element.classList.toggle("error", isError);
+    element.hidden = !message;
+  }
+
+  function renderMarketplaceProduct(product, includeActions = false) {
+    const status = MARKETPLACE_STATUS_LABELS[product.status] || "Pendente";
+    const imageURL = escapeHTML(product.imageUrl);
+    const title = escapeHTML(product.title);
+    const sellerName = escapeHTML(product.sellerName || "Vendedor");
+    const description = typeof product.description === "string" && product.description.trim()
+      ? `<span class="marketplace-product-description">${escapeHTML(product.description)}</span>`
+      : "";
+    const rejectionReason = product.status === "recusado" && typeof product.rejectionReason === "string" && product.rejectionReason.trim()
+      ? `<span class="marketplace-rejection-reason">Motivo da recusa: ${escapeHTML(product.rejectionReason)}</span>`
+      : "";
+    const actions = includeActions ? `
+      <div class="marketplace-product-actions">
+        <button class="marketplace-approve" type="button" data-approve-product="${escapeHTML(product.id)}">Aprovar</button>
+        <button class="marketplace-reject" type="button" data-reject-product="${escapeHTML(product.id)}">Recusar</button>
+      </div>` : `<span class="marketplace-status marketplace-status-${product.status}">${status}</span>`;
+    return `<article class="marketplace-product-card">
+      <div class="marketplace-product-image"><img src="${imageURL}" alt="" loading="lazy"></div>
+      <div class="marketplace-product-info">
+        <strong>${title}</strong>
+        <span>${escapeHTML(LABELS[product.cat])} · R$ ${money(product.price)}</span>
+        <span class="marketplace-seller">Vendedor: ${sellerName}</span>
+        ${description}
+        ${rejectionReason}
+        ${includeActions ? `<span class="marketplace-status marketplace-status-pendente">${status}</span>` : ""}
+      </div>
+      ${actions}
+    </article>`;
+  }
+
+  function renderSellerDashboard() {
+    const list = document.getElementById("sellerProductsList");
+    const message = document.getElementById("sellerFormMessage");
+    document.getElementById("sellerDashboardName").textContent = currentUser?.nome || "Vendedor";
+    setMarketplaceMessage(message, "");
+    try {
+      const products = readPendingProductsFromStorage()
+        .filter(product => product.sellerEmail === currentUser.email)
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      list.innerHTML = products.length
+        ? products.map(product => renderMarketplaceProduct(product)).join("")
+        : `<p class="marketplace-empty">Você ainda não enviou anúncios.</p>`;
+    } catch (error) {
+      console.error("Não foi possível carregar os anúncios do vendedor.", error);
+      list.innerHTML = `<p class="marketplace-empty">Não foi possível carregar seus anúncios. Revise os dados locais e tente novamente.</p>`;
+      setMarketplaceMessage(message, "Erro ao ler os anúncios salvos.", true);
+    }
+  }
+
+  function renderAdminDashboard() {
+    const list = document.getElementById("adminProductList");
+    const approvedList = document.getElementById("adminApprovedList");
+    const rejectedList = document.getElementById("adminRejectedList");
+    const message = document.getElementById("adminDashboardMessage");
+    setMarketplaceMessage(message, "");
+    try {
+      const products = readPendingProductsFromStorage();
+      const pendingProducts = products.filter(product => product.status === "pendente");
+      const approvedProducts = products.filter(product => product.status === "aprovado");
+      const rejectedProducts = products.filter(product => product.status === "recusado");
+      document.getElementById("adminPendingCount").textContent = pendingProducts.length;
+      document.getElementById("adminApprovedCount").textContent = approvedProducts.length;
+      document.getElementById("adminRejectedCount").textContent = rejectedProducts.length;
+      list.innerHTML = pendingProducts.length
+        ? pendingProducts.map(product => renderMarketplaceProduct(product, true)).join("")
+        : `<p class="marketplace-empty">Não há produtos aguardando aprovação.</p>`;
+      approvedList.innerHTML = approvedProducts.length
+        ? approvedProducts.map(product => renderMarketplaceProduct(product)).join("")
+        : `<p class="marketplace-empty">Ainda não há anúncios aprovados.</p>`;
+      rejectedList.innerHTML = rejectedProducts.length
+        ? rejectedProducts.map(product => renderMarketplaceProduct(product)).join("")
+        : `<p class="marketplace-empty">Ainda não há anúncios recusados.</p>`;
+    } catch (error) {
+      console.error("Não foi possível carregar a fila de aprovação.", error);
+      document.getElementById("adminPendingCount").textContent = "—";
+      document.getElementById("adminApprovedCount").textContent = "—";
+      document.getElementById("adminRejectedCount").textContent = "—";
+      list.innerHTML = `<p class="marketplace-empty">Não foi possível carregar a fila. Revise os dados locais e tente novamente.</p>`;
+      approvedList.innerHTML = `<p class="marketplace-empty">Não foi possível carregar os anúncios aprovados.</p>`;
+      rejectedList.innerHTML = `<p class="marketplace-empty">Não foi possível carregar os anúncios recusados.</p>`;
+      setMarketplaceMessage(message, "Erro ao ler os anúncios salvos.", true);
+    }
+  }
+
+  function persistMarketplaceChanges(nextPendingProducts, nextCatalog) {
+    const previousPending = localStorage.getItem("pendingProducts");
+    const previousCatalog = localStorage.getItem("catalog");
+    try {
+      if (nextCatalog) localStorage.setItem("catalog", JSON.stringify(nextCatalog));
+      localStorage.setItem("pendingProducts", JSON.stringify(nextPendingProducts));
+    } catch (error) {
+      try {
+        if (previousCatalog === null) localStorage.removeItem("catalog");
+        else localStorage.setItem("catalog", previousCatalog);
+        if (previousPending === null) localStorage.removeItem("pendingProducts");
+        else localStorage.setItem("pendingProducts", previousPending);
+      } catch (rollbackError) {
+        console.error("Não foi possível restaurar o estado anterior do marketplace.", rollbackError);
+      }
+      throw error;
+    }
+    if (nextCatalog) catalog.splice(0, catalog.length, ...nextCatalog);
+  }
+
+  function reviewMarketplaceProduct(productId, nextStatus, rejectionReason = "") {
+    const message = document.getElementById("adminDashboardMessage");
+    setMarketplaceMessage(message, "");
+    if (currentUser?.role !== "admin") {
+      setMarketplaceMessage(message, "Apenas administradores podem revisar anúncios.", true);
+      return false;
+    }
+
+    let products;
+    try {
+      products = readPendingProductsFromStorage();
+    } catch (error) {
+      console.error("Não foi possível ler a fila de aprovação.", error);
+      setMarketplaceMessage(message, "Não foi possível acessar a fila de aprovação. Revise os dados locais.", true);
+      return false;
+    }
+    const product = products.find(item => item.id === productId && item.status === "pendente");
+    if (!product) {
+      setMarketplaceMessage(message, "Este anúncio já foi revisado ou não está mais disponível.", true);
+      renderAdminDashboard();
+      return false;
+    }
+
+    let nextCatalog = null;
+    if (nextStatus === "aprovado") {
+      const duplicate = catalog.some(item =>
+        item.id === product.id || item.title.toLocaleLowerCase() === product.title.toLocaleLowerCase()
+      );
+      if (duplicate) {
+        setMarketplaceMessage(message, "Já existe um produto equivalente no catálogo. O anúncio não foi aprovado.", true);
+        return false;
+      }
+      nextCatalog = [...catalog, { ...product, status: "aprovado" }];
+    }
+    const nextPendingProducts = products.map(item =>
+      item.id === productId
+        ? { ...item, status: nextStatus, rejectionReason: nextStatus === "recusado" ? rejectionReason : "" }
+        : item
+    );
+    try {
+      persistMarketplaceChanges(nextPendingProducts, nextCatalog);
+    } catch (error) {
+      console.error("Não foi possível salvar a revisão do anúncio.", error);
+      setMarketplaceMessage(message, "Não foi possível salvar a revisão neste navegador. Tente novamente.", true);
+      return false;
+    }
+
+    if (nextStatus === "aprovado") {
+      renderDeals();
+      renderCatalog();
+      renderCategoryPage(activeCategory);
+      syncFavoriteButtons();
+    }
+    renderAdminDashboard();
+    setMarketplaceMessage(message, nextStatus === "aprovado"
+      ? "Produto aprovado e publicado no catálogo."
+      : "Anúncio recusado. O vendedor verá o status atualizado.");
+    return true;
+  }
 
   function updateUserHeader() {
     const loginButton = document.getElementById("loginOpen");
     const greeting = document.getElementById("userGreeting");
     const ordersButton = document.getElementById("ordersOpen");
     const isLoggedIn = Boolean(currentUser?.logado);
+    const sellerButton = document.getElementById("sellerDashboardOpen");
+    const adminButton = document.getElementById("adminDashboardOpen");
     loginButton.hidden = isLoggedIn;
     greeting.hidden = !isLoggedIn;
     ordersButton.hidden = !isLoggedIn;
+    sellerButton.hidden = !isLoggedIn || currentUser.role !== "seller";
+    adminButton.hidden = !isLoggedIn || currentUser.role !== "admin";
     greeting.classList.toggle("logged-in", isLoggedIn);
     greeting.querySelector("[data-user-name]").textContent = isLoggedIn ? `Olá, ${currentUser.nome}` : "";
   }
@@ -326,7 +675,9 @@
   }
 
   function showAppPage(page) {
-    const pageTargets = { home: "storeHome", category: "categoryPage", info: "infoPage", product: "productPage", orders: "ordersPage", user: "userPage", checkout: "checkoutPage", success: "successPage", register: "registerPage" };
+    if (page === "seller" && currentUser?.role !== "seller") page = "home";
+    if (page === "admin" && currentUser?.role !== "admin") page = "home";
+    const pageTargets = { home: "storeHome", category: "categoryPage", info: "infoPage", product: "productPage", orders: "ordersPage", user: "userPage", checkout: "checkoutPage", success: "successPage", register: "registerPage", seller: "sellerDashboard", admin: "adminDashboard" };
     document.getElementById("skipLink").href = `#${pageTargets[page] || pageTargets.home}`;
     document.getElementById("storeHome").hidden = page !== "home";
     document.getElementById("categoryPage").hidden = page !== "category";
@@ -351,6 +702,14 @@
       pageElement.hidden = isHidden;
       pageElement.classList.toggle("hidden", isHidden);
     });
+    const sellerDashboard = document.getElementById("sellerDashboard");
+    const adminDashboard = document.getElementById("adminDashboard");
+    sellerDashboard.hidden = page !== "seller";
+    sellerDashboard.classList.toggle("hidden", page !== "seller");
+    adminDashboard.hidden = page !== "admin";
+    adminDashboard.classList.toggle("hidden", page !== "admin");
+    if (page === "seller") renderSellerDashboard();
+    if (page === "admin") renderAdminDashboard();
     const sharedSections = [document.querySelector(".newsletter"), document.querySelector("footer")];
     sharedSections.forEach(section => {
       section.toggleAttribute("hidden", page !== "home");
@@ -364,6 +723,8 @@
       orders: document.getElementById("ordersTitle"),
       checkout: document.getElementById("checkoutTitle"),
       success: document.getElementById("successTitle"),
+      seller: document.getElementById("sellerDashboardName"),
+      admin: document.getElementById("adminProductsTitle"),
       register: document.getElementById("registerTitle"),
       user: document.getElementById("userPageTitle")
     };
@@ -392,9 +753,11 @@
 
   function renderCatalog() {
     const products = productsFor(activeCategory, searchTerm);
+    const sellerProducts = products.filter(product => product.sellerEmail).reverse();
+    const storefrontProducts = [...sellerProducts, ...products.filter(product => !product.sellerEmail)];
     document.getElementById("recTitle").textContent = searchTerm ? `Resultados para “${searchTerm}”` : activeCategory === "todos" ? "Mais vendidos" : activeCategory === "ofertas" ? "Todas as ofertas" : LABELS[activeCategory];
     document.getElementById("recSub").textContent = `${products.length} produtos encontrados`;
-    document.getElementById("recGrid").innerHTML = products.length ? products.slice(0, 10).map(cardHTML).join("") : `<div class="empty-state"><strong>Nenhum produto encontrado</strong><span>Tente buscar por outro nome ou categoria.</span></div>`;
+    document.getElementById("recGrid").innerHTML = products.length ? storefrontProducts.slice(0, 10).map(cardHTML).join("") : `<div class="empty-state"><strong>Nenhum produto encontrado</strong><span>Tente buscar por outro nome ou categoria.</span></div>`;
   }
 
   function renderRecommendations() {
@@ -521,8 +884,9 @@
 
   function panelItem(product, actions) {
     const title = escapeHTML(product.title);
+    const imageURL = escapeHTML(product.imageUrl || "");
     return `<article class="panel-item">
-      <a class="panel-item-icon panel-item-link" href="#produto" data-panel-product="${title}" aria-label="Ver detalhes de ${title}">${product.imageUrl ? `<img class="product-photo" src="${product.imageUrl}" alt="" loading="lazy">` : ICONS[product.cat]}</a>
+      <a class="panel-item-icon panel-item-link" href="#produto" data-panel-product="${title}" aria-label="Ver detalhes de ${title}">${imageURL ? `<img class="product-photo" src="${imageURL}" alt="" loading="lazy">` : ICONS[product.cat]}</a>
       <div class="panel-item-copy"><a class="panel-item-title panel-item-link" href="#produto" data-panel-product="${title}">${title}</a><div class="panel-item-price">R$ ${money(product.price)}</div></div>
       ${actions}
     </article>`;
@@ -532,7 +896,7 @@
     const list = [...favorites].map(title => catalog.find(product => product.title === title)).filter(Boolean);
     document.getElementById("favoritesCount").textContent = favorites.size;
     document.getElementById("favoritesList").innerHTML = list.length ? list.map(product => panelItem(product,
-      `<button class="item-remove" type="button" data-remove-favorite="${product.title}" aria-label="Remover ${product.title} dos favoritos">&times;</button>`
+      `<button class="item-remove" type="button" data-remove-favorite="${escapeHTML(product.title)}" aria-label="Remover ${escapeHTML(product.title)} dos favoritos">&times;</button>`
     )).join("") : `<div class="panel-empty"><strong>Sua lista está vazia</strong><span>Escolha um produto com o coração para guardar aqui.</span></div>`;
   }
 
@@ -547,11 +911,20 @@
     cartCount = [...cart.values()].reduce((total, quantity) => total + quantity, 0);
     document.getElementById("cartCount").textContent = cartCount;
     const products = [...cart.entries()].map(([title, quantity]) => ({ product: catalog.find(item => item.title === title), quantity })).filter(item => item.product);
-    document.getElementById("cartList").innerHTML = products.length ? products.map(({ product, quantity }) => panelItem(product,
-      `<div class="cart-quantity"><button type="button" data-cart-action="${product.title}" data-delta="down" aria-label="Diminuir quantidade de ${product.title}">−</button><span aria-live="polite">${quantity}</span><button type="button" data-cart-action="${product.title}" data-delta="up" aria-label="Aumentar quantidade de ${product.title}">+</button><button class="item-remove remove" type="button" data-cart-action="${product.title}" aria-label="Remover ${product.title} do carrinho">&times;</button></div>`
-    )).join("") : `<div class="panel-empty"><strong>Seu carrinho está vazio</strong><span>Adicione equipamentos e eles aparecerão aqui.</span></div>`;
-    const total = products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    document.getElementById("cartSummary").innerHTML = products.length ? `<div class="cart-total"><span>Total</span><span>R$ ${money(total)}</span></div><button class="panel-primary" type="button" data-open-checkout>Finalizar Compra</button>` : "";
+    document.getElementById("cartList").innerHTML = products.length ? products.map(({ product, quantity }) => {
+      const title = escapeHTML(product.title);
+      return panelItem(product,
+        `<div class="cart-quantity"><button type="button" data-cart-action="${title}" data-delta="down" aria-label="Diminuir quantidade de ${title}">−</button><span aria-live="polite">${quantity}</span><button type="button" data-cart-action="${title}" data-delta="up" aria-label="Aumentar quantidade de ${title}">+</button><button class="item-remove remove" type="button" data-cart-action="${title}" aria-label="Remover ${title} do carrinho">&times;</button></div>`
+      );
+    }).join("") : `<div class="panel-empty"><strong>Seu carrinho está vazio</strong><span>Adicione equipamentos e eles aparecerão aqui.</span></div>`;
+    const subtotal = products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const { shipping, total } = calculateCheckoutTotals(subtotal);
+    const shippingLabel = shipping === 0 ? "Grátis" : `R$ ${money(shipping)}`;
+    document.getElementById("cartSummary").innerHTML = products.length ? `
+      <div class="cart-summary-line"><span>Subtotal</span><strong>R$ ${money(subtotal)}</strong></div>
+      <div class="cart-summary-line"><span>Frete</span><strong class="${shipping === 0 ? "free-shipping" : ""}">${shippingLabel}</strong></div>
+      <div class="cart-total"><span>Total</span><span>R$ ${money(total)}</span></div>
+      <button class="panel-primary" type="button" data-open-checkout>Finalizar Compra</button>` : "";
     renderFavorites();
   }
 
@@ -644,6 +1017,48 @@
   });
 
   document.getElementById("ordersOpen").addEventListener("click", navigateToOrders);
+  document.getElementById("sellerDashboardOpen").addEventListener("click", () => {
+    if (currentUser?.role !== "seller") return;
+    showAppPage("seller");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("adminDashboardOpen").addEventListener("click", () => {
+    if (currentUser?.role !== "admin") return;
+    showAppPage("admin");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.querySelectorAll(".marketplace-dashboard").forEach(dashboard => {
+    dashboard.addEventListener("click", event => {
+      const homeButton = event.target.closest("[data-marketplace-home]");
+      if (homeButton) {
+        event.preventDefault();
+        showAppPage("home");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      const scrollButton = event.target.closest("[data-dashboard-scroll]");
+      if (scrollButton) {
+        document.getElementById(scrollButton.dataset.dashboardScroll)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      const logoutButton = event.target.closest("[data-marketplace-logout]");
+      if (!logoutButton) return;
+      try {
+        localStorage.removeItem("user");
+      } catch (error) {
+        console.error("Não foi possível encerrar a sessão neste navegador.", error);
+        const message = dashboard.id === "sellerDashboard"
+          ? document.getElementById("sellerFormMessage")
+          : document.getElementById("adminDashboardMessage");
+        setMarketplaceMessage(message, "Não foi possível encerrar a sessão. Tente novamente.", true);
+        return;
+      }
+      currentUser = null;
+      updateUserHeader();
+      showAppPage("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
   document.getElementById("ordersBack").addEventListener("click", () => {
     showAppPage("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -824,8 +1239,25 @@
   function openCheckout() {
     closeScreens();
     const products = [...cart.entries()].map(([title, quantity]) => ({ product: catalog.find(item => item.title === title), quantity })).filter(item => item.product);
-    document.getElementById("checkoutItems").innerHTML = products.map(({ product, quantity }) => `<div class="checkout-item"><span>${quantity}x ${escapeHTML(product.title)}</span><strong>R$ ${money(product.price * quantity)}</strong></div>`).join("");
-    document.getElementById("checkoutTotal").textContent = `R$ ${money(products.reduce((sum, item) => sum + item.product.price * item.quantity, 0))}`;
+    const productList = document.getElementById("checkoutProductList");
+    const summaryItems = document.getElementById("checkoutItems");
+    productList.innerHTML = products.length ? products.map(({ product, quantity }) => `
+      <article class="checkout-product">
+        <div class="checkout-product-image">${product.imageUrl ? `<img src="${escapeHTML(product.imageUrl)}" alt="" loading="lazy">` : ICONS[product.cat]}</div>
+        <div class="checkout-product-info"><strong>${escapeHTML(product.title)}</strong><span>Quantidade: ${quantity}</span></div>
+        <strong class="checkout-product-price">R$ ${money(product.price * quantity)}</strong>
+      </article>`).join("") : `<p class="checkout-empty">Seu carrinho está vazio. Adicione produtos antes de continuar.</p>`;
+    summaryItems.innerHTML = products.map(({ product, quantity }) =>
+      `<div class="checkout-item"><span>${quantity}x ${escapeHTML(product.title)}</span><strong>R$ ${money(product.price * quantity)}</strong></div>`
+    ).join("");
+    checkoutProductSubtotal = products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    document.getElementById("checkoutSubtotal").textContent = `R$ ${money(checkoutProductSubtotal)}`;
+    document.getElementById("checkoutBuyerName").textContent = currentUser?.nome || "Cliente demonstrativo";
+    document.getElementById("checkoutBuyerCpf").textContent = currentUser?.cpf
+      ? `CPF: ${currentUser.cpf}`
+      : "CPF fictício: 000.000.000-00";
+    document.getElementById("confirmPayment").disabled = false;
+    checkoutError.hidden = true;
     document.getElementById("checkoutForm").reset();
     syncPaymentSelection();
     showAppPage("checkout");
@@ -837,6 +1269,10 @@
   const checkoutForm = document.getElementById("checkoutForm");
   const cardFields = document.getElementById("cardFields");
   const checkoutError = document.getElementById("checkoutError");
+  const pixModal = document.getElementById("pixModal");
+  let checkoutProductSubtotal = 0;
+  let pixSimulationTimeout;
+
   function syncPaymentSelection() {
     const selectedPayment = checkoutForm.querySelector('input[name="payment"]:checked')?.value;
     const isCardSelected = selectedPayment === "card";
@@ -846,95 +1282,203 @@
     checkoutForm.querySelectorAll(".payment-option").forEach(option => {
       option.classList.toggle("selected", option.querySelector('input[name="payment"]').checked);
     });
+    checkoutForm.querySelectorAll(".delivery-option").forEach(option => {
+      option.classList.toggle("selected", option.querySelector('input[name="delivery"]').checked);
+    });
+    const deliveryMethod = checkoutForm.querySelector('input[name="delivery"]:checked')?.value || "free";
+    const totals = calculateCheckoutTotals(checkoutProductSubtotal, selectedPayment, deliveryMethod);
+    const shippingLabel = totals.shipping === 0 ? "Grátis" : `R$ ${money(totals.shipping)}`;
+    const standardShipping = calculateCheckoutTotals(checkoutProductSubtotal, selectedPayment, "free").shipping;
+    document.getElementById("checkoutShipping").textContent = shippingLabel;
+    document.getElementById("checkoutShipping").classList.toggle("free-shipping", totals.shipping === 0);
+    document.getElementById("checkoutTotal").textContent = `R$ ${money(totals.total)}`;
+    document.getElementById("checkoutPixDiscount").hidden = totals.pixDiscount === 0;
+    document.getElementById("checkoutPixDiscountValue").textContent = `-R$ ${money(totals.pixDiscount)}`;
+    document.getElementById("deliveryOptionTitle").textContent = standardShipping === 0 ? "Frete Grátis" : "Entrega";
+    document.getElementById("deliveryOptionPrice").textContent = standardShipping === 0 ? "Grátis" : `R$ ${money(standardShipping)}`;
   }
   checkoutForm.addEventListener("change", syncPaymentSelection);
   document.getElementById("checkoutBack").addEventListener("click", () => {
     showAppPage("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
-  checkoutForm.addEventListener("submit", e => {
-    e.preventDefault();
+
+  function createDemoOrder(paymentMethod) {
+    const savedCart = localStorage.getItem("cart");
+    if (savedCart === null) {
+      throw new Error("O carrinho está vazio. Adicione produtos antes de finalizar a compra.");
+    }
+    const storedCart = JSON.parse(savedCart);
+    if (!storedCart || typeof storedCart !== "object") {
+      throw new TypeError("O formato salvo para o carrinho é inválido.");
+    }
+    const cartEntries = Array.isArray(storedCart)
+      ? storedCart.map(product => [product?.title, product?.quantity ?? 1])
+      : Object.entries(storedCart);
+    const orderItems = cartEntries.map(([title, quantity]) => {
+      const product = catalog.find(item => item.title === title);
+      if (!product || !Number.isInteger(quantity) || quantity < 1) {
+        throw new TypeError("Há um item inválido no carrinho salvo.");
+      }
+      return { title: product.title, quantity, unitPrice: product.price };
+    });
+    if (!orderItems.length) {
+      throw new Error("O carrinho está vazio. Adicione produtos antes de finalizar a compra.");
+    }
+    const orders = readOrdersFromStorage();
+    if (orders.some(order => !order || typeof order.id !== "string")) {
+      throw new TypeError("Há um pedido inválido no histórico salvo.");
+    }
+    let orderId;
+    let attempts = 0;
+    do {
+      orderId = `#PED-${Math.floor(1000 + Math.random() * 9000)}`;
+      attempts += 1;
+    } while (orders.some(order => order.id === orderId) && attempts < 9000);
+    if (orders.some(order => order.id === orderId)) {
+      throw new Error("Não foi possível gerar um número de pedido exclusivo.");
+    }
+    const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const deliveryMethod = checkoutForm.querySelector('input[name="delivery"]:checked')?.value || "free";
+    const { shipping, pixDiscount, total } = calculateCheckoutTotals(subtotal, paymentMethod, deliveryMethod);
+    const order = {
+      id: orderId,
+      date: new Date().toISOString(),
+      items: orderItems,
+      subtotal,
+      shipping,
+      pixDiscount,
+      total,
+      paymentMethod,
+      delivery: deliveryMethod,
+      status: "Simulação concluída (não pago)"
+    };
+    orders.unshift(order);
+    localStorage.setItem("orders", JSON.stringify(orders));
+    localStorage.removeItem("cart");
+    cart.clear();
+    updateCart(false);
+    document.getElementById("successOrderId").textContent = `Pedido demonstrativo: ${order.id}`;
+  }
+
+  function completeDemoPayment(paymentMethod) {
+    const confirmButton = document.getElementById("confirmPayment");
+    const loading = document.getElementById("paymentLoading");
+    try {
+      createDemoOrder(paymentMethod);
+    } catch (error) {
+      console.error("Não foi possível registrar o pedido demonstrativo.", error);
+      const detail = error instanceof SyntaxError
+        ? "Os dados salvos do carrinho ou do histórico estão inválidos. Revise o armazenamento local e tente novamente."
+        : error.message;
+      checkoutError.textContent = `Não foi possível concluir a simulação: ${detail}`;
+      checkoutError.hidden = false;
+      confirmButton.disabled = false;
+      loading.hidden = true;
+      loading.classList.add("hidden");
+      loading.setAttribute("aria-hidden", "true");
+      hidePixModal();
+      return;
+    }
+    loading.hidden = true;
+    loading.classList.add("hidden");
+    loading.setAttribute("aria-hidden", "true");
+    hidePixModal();
+    showAppPage("success");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showPixModal() {
+    const alphabet = "0123456789abcdef";
+    const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+    const demoToken = Array.from(randomBytes, byte => alphabet[byte % alphabet.length]).join("");
+    const nonPayablePayload = `DEMO-ONLY-NOT-PAYABLE-${demoToken}`;
+    document.getElementById("pixQrCode").src =
+      `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(nonPayablePayload)}`;
+    document.getElementById("pixCopyCode").value = demoToken;
+    document.getElementById("pixCopyStatus").textContent = "";
+    pixModal.hidden = false;
+    pixModal.classList.remove("hidden");
+    pixModal.setAttribute("aria-hidden", "false");
+    document.getElementById("cancelPix").focus();
+    pixSimulationTimeout = window.setTimeout(() => completeDemoPayment("pix"), 7000);
+  }
+
+  function hidePixModal() {
+    window.clearTimeout(pixSimulationTimeout);
+    pixSimulationTimeout = undefined;
+    pixModal.hidden = true;
+    pixModal.classList.add("hidden");
+    pixModal.setAttribute("aria-hidden", "true");
+  }
+
+  checkoutForm.addEventListener("submit", event => {
+    event.preventDefault();
     const confirmButton = document.getElementById("confirmPayment");
     const loading = document.getElementById("paymentLoading");
     checkoutError.hidden = true;
+    if (!cart.size) {
+      checkoutError.textContent = "Seu carrinho está vazio. Adicione produtos antes de continuar.";
+      checkoutError.hidden = false;
+      return;
+    }
     confirmButton.disabled = true;
+    const paymentMethod = checkoutForm.querySelector('input[name="payment"]:checked')?.value;
+    if (paymentMethod === "pix") {
+      showPixModal();
+      return;
+    }
+    if (paymentMethod !== "card") {
+      checkoutError.textContent = "Selecione uma forma de pagamento para continuar.";
+      checkoutError.hidden = false;
+      confirmButton.disabled = false;
+      return;
+    }
     loading.hidden = false;
     loading.classList.remove("hidden");
     loading.setAttribute("aria-hidden", "false");
     window.setTimeout(() => {
-      try {
-        const savedCart = localStorage.getItem("cart");
-        if (savedCart === null) {
-          throw new Error("O carrinho está vazio. Adicione produtos antes de finalizar a compra.");
-        }
-        const storedCart = JSON.parse(savedCart);
-        if (!storedCart || typeof storedCart !== "object") {
-          throw new TypeError("O formato salvo para o carrinho é inválido.");
-        }
-        const cartEntries = Array.isArray(storedCart)
-          ? storedCart.map(product => [product?.title, product?.quantity ?? 1])
-          : Object.entries(storedCart);
-        const orderItems = cartEntries.map(([title, quantity]) => {
-          const product = catalog.find(item => item.title === title);
-          if (!product || !Number.isInteger(quantity) || quantity < 1) {
-            throw new TypeError("Há um item inválido no carrinho salvo.");
-          }
-          return { title: product.title, quantity, unitPrice: product.price };
-        });
-        if (!orderItems.length) {
-          throw new Error("O carrinho está vazio. Adicione produtos antes de finalizar a compra.");
-        }
-        const orders = readOrdersFromStorage();
-        if (orders.some(order => !order || typeof order.id !== "string")) {
-          throw new TypeError("Há um pedido inválido no histórico salvo.");
-        }
-        let orderId;
-        let attempts = 0;
-        do {
-          orderId = `#PED-${Math.floor(1000 + Math.random() * 9000)}`;
-          attempts += 1;
-        } while (orders.some(order => order.id === orderId) && attempts < 9000);
-        if (orders.some(order => order.id === orderId)) {
-          throw new Error("Não foi possível gerar um número de pedido exclusivo.");
-        }
-        const order = {
-          id: orderId,
-          date: new Date().toISOString(),
-          items: orderItems,
-          total: orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
-          status: "Pagamento Aprovado"
-        };
-        orders.unshift(order);
-        localStorage.setItem("orders", JSON.stringify(orders));
-        localStorage.removeItem("cart");
-        cart.clear();
-        updateCart(false);
-        document.getElementById("successOrderId").textContent = `Número do pedido: ${order.id}`;
-      } catch (error) {
-        console.error("Não foi possível registrar o pedido.", error);
-        const detail = error instanceof SyntaxError
-          ? "Os dados salvos do carrinho ou do histórico estão inválidos. Revise o armazenamento local e tente novamente."
-          : error.message;
-        checkoutError.textContent = `Não foi possível concluir a compra: ${detail}`;
-        checkoutError.hidden = false;
-        confirmButton.disabled = false;
-        loading.hidden = true;
-        loading.classList.add("hidden");
-        loading.setAttribute("aria-hidden", "true");
+      completeDemoPayment("card");
+    }, 2000);
+  });
+
+  async function copyPixDemoCode() {
+    const pixCopyCode = document.getElementById("pixCopyCode");
+    const status = document.getElementById("pixCopyStatus");
+    try {
+      await navigator.clipboard.writeText(pixCopyCode.value);
+    } catch (error) {
+      pixCopyCode.focus();
+      pixCopyCode.select();
+      const copied = document.execCommand("copy");
+      if (!copied) {
+        status.textContent = "Não foi possível copiar automaticamente. Selecione e copie o código manualmente.";
+        console.error("Não foi possível copiar o código Pix demonstrativo.", error);
         return;
       }
-      loading.hidden = true;
-      loading.classList.add("hidden");
-      loading.setAttribute("aria-hidden", "true");
-      showAppPage("success");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }, 2500);
+    }
+    status.textContent = "Código demonstrativo copiado.";
+  }
+
+  document.getElementById("copyPixCode").addEventListener("click", copyPixDemoCode);
+  document.getElementById("cancelPix").addEventListener("click", () => {
+    hidePixModal();
+    document.getElementById("confirmPayment").disabled = false;
+    document.getElementById("confirmPayment").focus();
+  });
+  pixModal.addEventListener("click", event => {
+    if (event.target === pixModal || event.target.closest("[data-cancel-pix]")) {
+      hidePixModal();
+      document.getElementById("confirmPayment").disabled = false;
+      document.getElementById("confirmPayment").focus();
+    }
   });
   document.getElementById("backToHome").addEventListener("click", () => {
     document.getElementById("confirmPayment").disabled = false;
     checkoutForm.reset();
     checkoutError.hidden = true;
     document.getElementById("successOrderId").textContent = "";
+    document.getElementById("checkoutProductList").innerHTML = "";
     syncPaymentSelection();
     showAppPage("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1055,12 +1599,166 @@
       first.focus();
     }
   });
+  const sellerMediaInput = document.getElementById("sellerMediaInput");
+  document.getElementById("sellerMediaButton").addEventListener("click", () => sellerMediaInput.click());
+  sellerMediaInput.addEventListener("change", () => {
+    const notice = document.getElementById("sellerMediaNotice");
+    const selectedFiles = [...sellerMediaInput.files].map(file => file.name);
+    notice.textContent = selectedFiles.length
+      ? `${selectedFiles.length} arquivo(s) selecionado(s): ${selectedFiles.join(", ")}. Não serão enviados.`
+      : "Seleção local para demonstração; os arquivos não serão enviados.";
+  });
+  document.getElementById("sellerProductForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const message = document.getElementById("sellerFormMessage");
+    setMarketplaceMessage(message, "");
+    if (currentUser?.role !== "seller" || !currentUser.email) {
+      setMarketplaceMessage(message, "Entre com a conta de vendedor para publicar anúncios.", true);
+      return;
+    }
+
+    const title = form.elements.title.value.trim();
+    const category = form.elements.category.value;
+    const price = Number(form.elements.price.value);
+    const description = form.elements.description.value.trim();
+    let imageURL;
+    try {
+      imageURL = new URL(form.elements.imageUrl.value.trim());
+      if (!["http:", "https:"].includes(imageURL.protocol)) throw new TypeError("Protocolo de imagem inválido.");
+    } catch (error) {
+      setMarketplaceMessage(message, "Informe uma URL de imagem válida iniciada por http:// ou https://.", true);
+      return;
+    }
+    if (!title || !CATS.includes(category) || !Number.isFinite(price) || price <= 0 || !description) {
+      setMarketplaceMessage(message, "Preencha o título, a categoria, o preço e a descrição do anúncio.", true);
+      return;
+    }
+
+    let products;
+    try {
+      products = readPendingProductsFromStorage();
+    } catch (error) {
+      console.error("Não foi possível ler os anúncios salvos.", error);
+      setMarketplaceMessage(message, "Não foi possível acessar os anúncios salvos. Revise os dados locais.", true);
+      return;
+    }
+    const normalizedTitle = title.toLocaleLowerCase();
+    const titleAlreadyUsed = catalog.some(product => product.title.toLocaleLowerCase() === normalizedTitle) ||
+      products.some(product => product.status !== "recusado" && product.title.toLocaleLowerCase() === normalizedTitle);
+    if (titleAlreadyUsed) {
+      setMarketplaceMessage(message, "Já existe um anúncio com esse título. Escolha um título diferente.", true);
+      return;
+    }
+
+    const product = {
+      id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `seller-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title,
+      cat: category,
+      price: Math.round(price * 100) / 100,
+      imageUrl: imageURL.href,
+      description,
+      old: null,
+      discount: null,
+      rating: "0.0",
+      reviews: 0,
+      status: "pendente",
+      sellerEmail: currentUser.email,
+      sellerName: currentUser.nome,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      persistMarketplaceChanges([...products, product], null);
+    } catch (error) {
+      console.error("Não foi possível salvar o novo anúncio.", error);
+      setMarketplaceMessage(message, "Não foi possível salvar o anúncio neste navegador. Verifique o armazenamento e tente novamente.", true);
+      return;
+    }
+    form.reset();
+    document.getElementById("sellerMediaNotice").textContent = "Seleção local para demonstração; os arquivos não serão enviados.";
+    renderSellerDashboard();
+    setMarketplaceMessage(message, "Anúncio enviado e aguardando aprovação do administrador.");
+  });
+
+  let rejectionProductId = null;
+  let rejectionTrigger = null;
+  const rejectionModal = document.getElementById("rejectionModal");
+  const rejectionReasonInput = document.getElementById("rejectionReason");
+  function closeRejectionModal(restoreFocus = true) {
+    rejectionModal.hidden = true;
+    rejectionModal.classList.add("hidden");
+    rejectionProductId = null;
+    if (restoreFocus && rejectionTrigger?.isConnected) rejectionTrigger.focus();
+    rejectionTrigger = null;
+  }
+  document.getElementById("adminProductList").addEventListener("click", event => {
+    const approveButton = event.target.closest("[data-approve-product]");
+    const rejectButton = event.target.closest("[data-reject-product]");
+    if (approveButton) {
+      reviewMarketplaceProduct(approveButton.dataset.approveProduct, "aprovado");
+      return;
+    }
+    if (!rejectButton) return;
+    if (currentUser?.role !== "admin") {
+      setMarketplaceMessage(document.getElementById("adminDashboardMessage"), "Apenas administradores podem revisar anúncios.", true);
+      return;
+    }
+    let product;
+    try {
+      product = readPendingProductsFromStorage().find(item =>
+        item.id === rejectButton.dataset.rejectProduct && item.status === "pendente"
+      );
+    } catch (error) {
+      console.error("Não foi possível ler a fila de aprovação.", error);
+      setMarketplaceMessage(document.getElementById("adminDashboardMessage"), "Não foi possível acessar a fila de aprovação. Revise os dados locais.", true);
+      return;
+    }
+    if (!product) {
+      setMarketplaceMessage(document.getElementById("adminDashboardMessage"), "Este anúncio já foi revisado ou não está mais disponível.", true);
+      renderAdminDashboard();
+      return;
+    }
+    rejectionProductId = product.id;
+    rejectionTrigger = rejectButton;
+    document.getElementById("rejectionProductTitle").textContent = product.title;
+    document.getElementById("rejectionModalError").hidden = true;
+    rejectionReasonInput.value = "";
+    rejectionModal.hidden = false;
+    rejectionModal.classList.remove("hidden");
+    rejectionReasonInput.focus();
+  });
+  document.getElementById("rejectionForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const rejectionReason = rejectionReasonInput.value.trim();
+    const error = document.getElementById("rejectionModalError");
+    if (!rejectionReason) {
+      error.textContent = "Informe um motivo para recusar o anúncio.";
+      error.hidden = false;
+      rejectionReasonInput.focus();
+      return;
+    }
+    if (reviewMarketplaceProduct(rejectionProductId, "recusado", rejectionReason)) {
+      closeRejectionModal(false);
+    }
+  });
+  document.getElementById("cancelRejection").addEventListener("click", () => closeRejectionModal());
+  rejectionModal.addEventListener("click", event => {
+    if (event.target === rejectionModal) closeRejectionModal();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !rejectionModal.hidden) closeRejectionModal();
+  });
   document.getElementById("loginForm").addEventListener("submit", e => {
     e.preventDefault();
     const loginError = document.getElementById("loginError");
     loginError.hidden = true;
+    const email = e.currentTarget.querySelector('input[type="email"]').value.trim().toLowerCase();
+    const isAdmin = ["admin@kart.com", "adm@gmail.com"].includes(email);
+    const isSeller = ["vendedor@kart.com", "vendedor@gmail.com"].includes(email);
+    const role = isAdmin ? "admin" : isSeller ? "seller" : "buyer";
+    const nome = isAdmin ? "Administrador" : isSeller ? "Vendedor" : "Professor";
     try {
-      currentUser = { nome: "Professor", logado: true };
+      currentUser = { nome, email, role, logado: true };
       localStorage.setItem("user", JSON.stringify(currentUser));
     } catch (error) {
       console.error("Não foi possível salvar o usuário neste navegador.", error);
@@ -1075,12 +1773,19 @@
       navigateToOrders();
     }
   });
-  document.getElementById("registerForm").addEventListener("submit", e => {
+  const registerForm = document.getElementById("registerForm");
+  const registerCpfInput = registerForm.querySelector('[name="cpf"]');
+  registerCpfInput.addEventListener("input", () => {
+    registerCpfInput.value = formatCPF(registerCpfInput.value);
+  });
+  registerForm.addEventListener("submit", e => {
     e.preventDefault();
     const form = e.currentTarget;
     const registerError = document.getElementById("registerError");
     const nameInput = form.querySelector('[name="name"]');
     const nome = nameInput.value.trim();
+    const email = form.querySelector('[name="email"]').value.trim().toLowerCase();
+    const cpfDigits = registerCpfInput.value.replace(/\D/g, "");
     registerError.hidden = true;
     if (!nome) {
       registerError.textContent = "Informe seu nome para criar a conta.";
@@ -1088,8 +1793,16 @@
       nameInput.focus();
       return;
     }
+    if (cpfDigits.length !== 11) {
+      registerError.textContent = "Informe os 11 números do CPF.";
+      registerError.hidden = false;
+      registerCpfInput.focus();
+      return;
+    }
 
-    const newUser = { nome, logado: true };
+    const cpf = formatCPF(cpfDigits);
+    registerCpfInput.value = cpf;
+    const newUser = { nome, email, cpf, role: "buyer", logado: true };
     let seededFavorites;
     let seededCart;
     try {

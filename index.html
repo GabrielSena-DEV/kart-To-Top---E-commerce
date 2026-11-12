@@ -15,10 +15,10 @@
 <div class="topbar">
   <div class="container">
     <div class="topbar-ticker">
-      <span>Frete grátis para <b>Sudeste</b> em compras acima de R$ 299</span>
+      <span>Frete e prazo estimados conforme a distância simulada entre CEPs</span>
       <span><b>10x sem juros</b> em capacetes selecionados</span>
       <span>Retirada em <b>48 lojas</b> parceiras de kartódromo</span>
-      <span aria-hidden="true">Frete grátis para <b>Sudeste</b> em compras acima de R$ 299</span>
+      <span aria-hidden="true">Frete e prazo estimados conforme a distância simulada entre CEPs</span>
       <span aria-hidden="true"><b>10x sem juros</b> em capacetes selecionados</span>
     </div>
     <div class="topbar-links">
@@ -161,7 +161,15 @@
         <h1 id="productDetailTitle">Produto</h1>
         <div class="product-price"><small>R$</small><span id="productDetailPrice">0,00</span></div>
         <p id="productInstallment" class="product-installment"></p>
-        <p class="product-shipping">Chegará grátis amanhã</p>
+        <section class="product-shipping-estimator" aria-label="Estimativa de entrega">
+          <strong>Calcule frete e prazo</strong>
+          <div class="product-shipping-controls">
+            <label class="sr-only" for="productDeliveryCep">CEP de destino</label>
+            <input id="productDeliveryCep" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" aria-describedby="productShippingEstimate" placeholder="00000-000">
+            <button id="calculateProductDelivery" type="button">Calcular</button>
+          </div>
+          <p id="productShippingEstimate" class="product-shipping" aria-live="polite">Informe um CEP para consultar uma estimativa demonstrativa.</p>
+        </section>
         <label class="product-quantity-label" for="productQuantity">Quantidade</label>
         <div class="product-quantity-control">
           <input id="productQuantity" type="number" min="1" max="10" value="1" inputmode="numeric">
@@ -173,7 +181,7 @@
           <strong>Compra Garantida</strong>
           <p>Receba o produto que está esperando ou devolvemos o dinheiro.</p>
         </div>
-        <p class="product-demo-notice">Loja demonstrativa: frete, vendas e condições são ilustrativos.</p>
+        <p class="product-demo-notice">Estimativa fictícia: km = diferença dos 5 primeiros dígitos dos CEPs × 0,04 + diferença dos 3 últimos × 0,01 (mín. 3 km); frete = R$ 9,90 + R$ 0,07/km (máx. R$ 89,90); prazo = (1 + teto de km ÷ 350) dias úteis. Não consulta mapas nem transportadoras.</p>
       </aside>
     </div>
 
@@ -282,10 +290,10 @@
         <section class="checkout-card checkout-delivery" aria-labelledby="deliveryTitle">
           <h2 id="deliveryTitle">Forma de entrega</h2>
           <label class="delivery-option">
-            <input type="radio" name="delivery" value="free" checked>
+            <input type="radio" name="delivery" value="delivery" checked>
             <span class="delivery-radio" aria-hidden="true"></span>
-            <span class="delivery-option-copy"><strong id="deliveryOptionTitle">Frete Grátis</strong><small>Chega amanhã · endereço demonstrativo</small></span>
-            <span id="deliveryOptionPrice" class="delivery-price">Grátis</span>
+            <span class="delivery-option-copy"><strong id="deliveryOptionTitle">Entrega estimada</strong><small id="deliveryEstimateDetails">Informe seu CEP para calcular a distância e o prazo simulados.</small></span>
+            <span id="deliveryOptionPrice" class="delivery-price">—</span>
           </label>
           <label class="delivery-option">
             <input type="radio" name="delivery" value="pickup">
@@ -294,9 +302,14 @@
             <span class="delivery-price">Grátis</span>
           </label>
           <div class="checkout-address">
-            <strong>Endereço de demonstração</strong>
-            <span>Av. Paulista, 1000 · Bela Vista</span>
-            <span>São Paulo - SP · 01310-100</span>
+            <strong>CEP de destino</strong>
+            <label class="checkout-cep-field" for="checkoutDeliveryCep">CEP para estimar a entrega</label>
+            <div class="checkout-cep-controls">
+              <input id="checkoutDeliveryCep" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" required placeholder="00000-000" aria-describedby="checkoutCepFeedback">
+              <button id="calculateCheckoutDelivery" type="button">Calcular</button>
+            </div>
+            <span id="checkoutCepFeedback" class="checkout-cep-feedback" aria-live="polite">Distância e prazo são simulados a partir dos CEPs.</span>
+            <small class="checkout-estimate-note">Cálculo demonstrativo, sem consulta geográfica: valor e prazo são aproximações matemáticas para apresentação.</small>
           </div>
         </section>
 
@@ -348,7 +361,7 @@
         <h2 id="checkoutSummaryTitle">Resumo da compra</h2>
         <div id="checkoutItems" class="checkout-items" aria-live="polite"></div>
         <div class="checkout-summary-line"><span>Subtotal dos produtos</span><strong id="checkoutSubtotal">R$ 0,00</strong></div>
-        <div class="checkout-summary-line"><span>Frete</span><strong id="checkoutShipping" class="free-shipping">Grátis</strong></div>
+        <div class="checkout-summary-line"><span>Frete estimado</span><strong id="checkoutShipping">—</strong></div>
         <div id="checkoutPixDiscount" class="checkout-summary-line checkout-pix-discount" hidden><span>Desconto Pix (7%)</span><strong id="checkoutPixDiscountValue">-R$ 0,00</strong></div>
         <div class="checkout-total"><span>Total</span><strong id="checkoutTotal">R$ 0,00</strong></div>
         <p id="checkoutError" class="checkout-error" role="alert" hidden></p>
@@ -416,6 +429,7 @@
         </label>
         <label>Preço (R$)<input name="price" type="number" min="0.01" step="0.01" placeholder="0,00" required></label>
         <label>URL da imagem<input name="imageUrl" type="url" inputmode="url" placeholder="https://exemplo.com/produto.jpg" required></label>
+        <label>CEP de origem do vendedor<input name="sellerCep" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" value="04547-130" required></label>
         <label class="seller-field-wide">Descrição<textarea name="description" rows="4" maxlength="1200" placeholder="Descreva as características e condições do produto." required></textarea></label>
         <div class="seller-media-field seller-field-wide">
           <button id="sellerMediaButton" class="seller-media-button" type="button">
@@ -449,6 +463,7 @@
     <header class="dashboard-page-head">
       <div><span>Painel administrativo</span><h1>Revisão de anúncios</h1></div>
       <p>Gerencie anúncios em todos os status.</p>
+      <button id="adminFactoryReset" class="admin-factory-reset" type="button" aria-label="Restaurar dados de demonstração de fábrica" title="Restaurar dados de demonstração"> </button>
     </header>
     <p class="marketplace-demo-note">Painel demonstrativo: as permissões são simuladas no navegador e não substituem autenticação no servidor.</p>
     <section id="adminProducts" class="dashboard-card" aria-labelledby="adminProductsTitle">

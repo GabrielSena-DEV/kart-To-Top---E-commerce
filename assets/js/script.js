@@ -71,6 +71,91 @@
   const unsplashImage = photoId => `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=900&q=80&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D`;
 
   const money = value => value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const DEFAULT_DESTINATION_CEP = "01310100";
+  const DEFAULT_SELLER_CEP = "04547130";
+  function normalizeCEP(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length === 8 ? digits : null;
+  }
+  function formatCEP(value) {
+    const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+    return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+  }
+  function loadDestinationCep() {
+    try {
+      return normalizeCEP(localStorage.getItem("deliveryCep")) || DEFAULT_DESTINATION_CEP;
+    } catch (error) {
+      console.error("Não foi possível carregar o CEP de destino salvo.", error);
+      return DEFAULT_DESTINATION_CEP;
+    }
+  }
+  let destinationCep = loadDestinationCep();
+  function saveDestinationCep(value) {
+    const normalized = normalizeCEP(value);
+    if (!normalized) return "invalid";
+    try {
+      localStorage.setItem("deliveryCep", normalized);
+      destinationCep = normalized;
+      return "saved";
+    } catch (error) {
+      console.error("Não foi possível salvar o CEP de destino neste navegador.", error);
+      return "storage-error";
+    }
+  }
+
+  function estimateDistanceKm(originCep, targetCep) {
+    const origin = normalizeCEP(originCep) || DEFAULT_SELLER_CEP;
+    const target = normalizeCEP(targetCep);
+    if (!target) return null;
+    if (origin === target) return 0;
+
+    const areaDifference = Math.abs(Number(origin.slice(0, 5)) - Number(target.slice(0, 5)));
+    const suffixDifference = Math.abs(Number(origin.slice(5)) - Number(target.slice(5)));
+    return Math.max(3, Math.round(areaDifference * 0.04 + suffixDifference * 0.01));
+  }
+
+  function estimateDelivery(originCep, targetCep) {
+    const distanceKm = estimateDistanceKm(originCep, targetCep);
+    if (distanceKm === null) return null;
+    return {
+      distanceKm,
+      days: 1 + Math.ceil(distanceKm / 350),
+      shipping: Math.min(89.9, Math.round((9.9 + distanceKm * 0.07) * 100) / 100)
+    };
+  }
+
+  function calculateDelivery(products, targetCep, deliveryMethod = "delivery") {
+    if (deliveryMethod === "pickup" || !products.length) {
+      return { shipping: 0, distanceKm: 0, days: 0 };
+    }
+    const sellerGroups = new Map();
+    products.forEach(({ product }) => {
+      const originCep = normalizeCEP(product.sellerCep) || DEFAULT_SELLER_CEP;
+      if (!sellerGroups.has(originCep)) sellerGroups.set(originCep, estimateDelivery(originCep, targetCep));
+    });
+    const estimates = [...sellerGroups.values()];
+    if (estimates.some(estimate => !estimate)) return null;
+    return {
+      shipping: Math.round(estimates.reduce((sum, estimate) => sum + estimate.shipping, 0) * 100) / 100,
+      distanceKm: estimates.length ? Math.max(...estimates.map(estimate => estimate.distanceKm)) : 0,
+      days: estimates.length ? Math.max(...estimates.map(estimate => estimate.days)) : 0
+    };
+  }
+
+  function deliveryDescription(estimate) {
+    if (!estimate || !estimate.days) return "Retire em um ponto parceiro";
+    const dayLabel = estimate.days === 1 ? "dia útil" : "dias úteis";
+    const arrival = new Date();
+    arrival.setHours(12, 0, 0, 0);
+    let remainingDays = estimate.days;
+    while (remainingDays > 0) {
+      arrival.setDate(arrival.getDate() + 1);
+      if (arrival.getDay() !== 0 && arrival.getDay() !== 6) remainingDays -= 1;
+    }
+    const arrivalDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(arrival);
+    return `Distância simulada: ${estimate.distanceKm} km · prazo: ${estimate.days} ${dayLabel} (previsão ${arrivalDate})`;
+  }
+
   function formatCPF(value) {
     const digits = String(value).replace(/\D/g, "").slice(0, 11);
     if (digits.length > 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
@@ -79,14 +164,17 @@
     return digits;
   }
 
-  function calculateCheckoutTotals(subtotal, paymentMethod = "card", deliveryMethod = "free") {
+  function calculateCheckoutTotals(subtotal, paymentMethod = "card", deliveryMethod = "delivery", products = [], targetCep = destinationCep) {
     const subtotalCents = Math.round(subtotal * 100);
-    const shippingCents = deliveryMethod === "pickup" || subtotalCents >= 5000 ? 0 : 2500;
+    const deliveryEstimate = calculateDelivery(products, targetCep, deliveryMethod);
+    const shippingCents = deliveryEstimate ? Math.round(deliveryEstimate.shipping * 100) : 0;
     const pixDiscountCents = paymentMethod === "pix" ? Math.round(subtotalCents * 0.07) : 0;
     return {
       shipping: shippingCents / 100,
       pixDiscount: pixDiscountCents / 100,
-      total: (subtotalCents + shippingCents - pixDiscountCents) / 100
+      total: (subtotalCents + shippingCents - pixDiscountCents) / 100,
+      distanceKm: deliveryEstimate?.distanceKm ?? null,
+      days: deliveryEstimate?.days ?? null
     };
   }
 
@@ -398,6 +486,7 @@
       ...(existingGloves || makeProduct("indumentaria", 5)),
       id: "demo-approved-gloves",
       title: "Luvas de chuva Kart",
+      sellerCep: DEFAULT_SELLER_CEP,
       sellerEmail,
       sellerName,
       description: "Luvas impermeáveis para manter a aderência e o conforto em treinos com chuva.",
@@ -415,6 +504,7 @@
         discount: null,
         rating: "0.0",
         reviews: 0,
+        sellerCep: DEFAULT_SELLER_CEP,
         description: "Macacão azul para kart, com tecido resistente e modelagem confortável para os treinos.",
         status: "pendente",
         sellerEmail,
@@ -432,6 +522,7 @@
         discount: null,
         rating: "0.0",
         reviews: 0,
+        sellerCep: DEFAULT_SELLER_CEP,
         description: "Motor usado para kart, anunciado para demonstração de análise.",
         status: "recusado",
         rejectionReason: "Produtos usados requerem nota fiscal anexada na descrição.",
@@ -506,6 +597,7 @@
         <strong>${title}</strong>
         <span>${escapeHTML(LABELS[product.cat])} · R$ ${money(product.price)}</span>
         <span class="marketplace-seller">Vendedor: ${sellerName}</span>
+        <span class="marketplace-seller">Origem: CEP ${formatCEP(normalizeCEP(product.sellerCep) || DEFAULT_SELLER_CEP)}</span>
         ${description}
         ${rejectionReason}
         ${includeActions ? `<span class="marketplace-status marketplace-status-pendente">${status}</span>` : ""}
@@ -918,11 +1010,13 @@
       );
     }).join("") : `<div class="panel-empty"><strong>Seu carrinho está vazio</strong><span>Adicione equipamentos e eles aparecerão aqui.</span></div>`;
     const subtotal = products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const { shipping, total } = calculateCheckoutTotals(subtotal);
-    const shippingLabel = shipping === 0 ? "Grátis" : `R$ ${money(shipping)}`;
+    const deliveryEstimate = calculateDelivery(products, destinationCep);
+    const { shipping, total } = calculateCheckoutTotals(subtotal, "card", "delivery", products, destinationCep);
+    const shippingLabel = `R$ ${money(shipping)}`;
     document.getElementById("cartSummary").innerHTML = products.length ? `
       <div class="cart-summary-line"><span>Subtotal</span><strong>R$ ${money(subtotal)}</strong></div>
-      <div class="cart-summary-line"><span>Frete</span><strong class="${shipping === 0 ? "free-shipping" : ""}">${shippingLabel}</strong></div>
+      <div class="cart-summary-line"><span>Frete estimado</span><strong>${shippingLabel}</strong></div>
+      <p class="cart-delivery-estimate">CEP ${formatCEP(destinationCep)} · ${escapeHTML(deliveryDescription(deliveryEstimate))}</p>
       <div class="cart-total"><span>Total</span><span>R$ ${money(total)}</span></div>
       <button class="panel-primary" type="button" data-open-checkout>Finalizar Compra</button>` : "";
     renderFavorites();
@@ -1087,6 +1181,17 @@
   });
 
   let productOrigin = "home";
+  let activeDeliveryProduct = null;
+
+  function renderProductDeliveryEstimate() {
+    const estimate = activeDeliveryProduct
+      ? estimateDelivery(activeDeliveryProduct.sellerCep || DEFAULT_SELLER_CEP, destinationCep)
+      : null;
+    const shipping = document.getElementById("productShippingEstimate");
+    shipping.textContent = estimate
+      ? `Frete estimado: R$ ${money(estimate.shipping)} · ${deliveryDescription(estimate)} (simulação)`
+      : "Não foi possível calcular a estimativa para este CEP.";
+  }
 
   function renderProductReviews() {
     const quotePool = [...recommendationReviews];
@@ -1114,6 +1219,7 @@
   function openProduct(title) {
     const product = catalog.find(item => item.title === title);
     if (!product) return;
+    activeDeliveryProduct = product;
     productOrigin = document.getElementById("categoryPage").hidden ? "home" : "category";
     document.getElementById("productDetailTitle").textContent = product.title;
     document.getElementById("productDetailPrice").textContent = money(product.price);
@@ -1122,7 +1228,26 @@
     document.getElementById("productDescription").textContent =
       `${product.title} é uma opção selecionada da categoria ${LABELS[product.cat] || "automobilismo"}, pensada para oferecer desempenho, qualidade e confiança nos seus treinos e competições. Confira as especificações do produto antes de finalizar seu pedido.`;
     document.getElementById("productQuantity").value = "1";
+    document.getElementById("productDeliveryCep").value = formatCEP(destinationCep);
+    renderProductDeliveryEstimate();
     const productGallery = document.getElementById("productGalleryMain");
+    const productDeliveryCep = document.getElementById("productDeliveryCep");
+    productDeliveryCep.addEventListener("input", () => {
+      productDeliveryCep.value = formatCEP(productDeliveryCep.value);
+    });
+    document.getElementById("calculateProductDelivery").addEventListener("click", () => {
+      const saveResult = saveDestinationCep(productDeliveryCep.value);
+      if (saveResult !== "saved") {
+        document.getElementById("productShippingEstimate").textContent = saveResult === "invalid"
+          ? "Informe um CEP válido com 8 números."
+          : "Não foi possível salvar o CEP neste navegador. Verifique o armazenamento e tente novamente.";
+        productDeliveryCep.focus();
+        return;
+      }
+      productDeliveryCep.value = formatCEP(destinationCep);
+      renderProductDeliveryEstimate();
+      updateCart(false);
+    });
     productGallery.innerHTML = ICONS[product.cat] || "";
     productGallery.classList.remove("zoomed");
     if (product.imageUrl) {
@@ -1239,6 +1364,7 @@
   function openCheckout() {
     closeScreens();
     const products = [...cart.entries()].map(([title, quantity]) => ({ product: catalog.find(item => item.title === title), quantity })).filter(item => item.product);
+    checkoutProducts = products;
     const productList = document.getElementById("checkoutProductList");
     const summaryItems = document.getElementById("checkoutItems");
     productList.innerHTML = products.length ? products.map(({ product, quantity }) => `
@@ -1259,6 +1385,7 @@
     document.getElementById("confirmPayment").disabled = false;
     checkoutError.hidden = true;
     document.getElementById("checkoutForm").reset();
+    document.getElementById("checkoutDeliveryCep").value = formatCEP(destinationCep);
     syncPaymentSelection();
     showAppPage("checkout");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1271,6 +1398,7 @@
   const checkoutError = document.getElementById("checkoutError");
   const pixModal = document.getElementById("pixModal");
   let checkoutProductSubtotal = 0;
+  let checkoutProducts = [];
   let pixSimulationTimeout;
 
   function syncPaymentSelection() {
@@ -1285,19 +1413,50 @@
     checkoutForm.querySelectorAll(".delivery-option").forEach(option => {
       option.classList.toggle("selected", option.querySelector('input[name="delivery"]').checked);
     });
-    const deliveryMethod = checkoutForm.querySelector('input[name="delivery"]:checked')?.value || "free";
-    const totals = calculateCheckoutTotals(checkoutProductSubtotal, selectedPayment, deliveryMethod);
-    const shippingLabel = totals.shipping === 0 ? "Grátis" : `R$ ${money(totals.shipping)}`;
-    const standardShipping = calculateCheckoutTotals(checkoutProductSubtotal, selectedPayment, "free").shipping;
+    const deliveryMethod = checkoutForm.querySelector('input[name="delivery"]:checked')?.value || "delivery";
+    const checkoutCep = normalizeCEP(document.getElementById("checkoutDeliveryCep").value);
+    const estimate = checkoutCep ? calculateDelivery(checkoutProducts, checkoutCep, deliveryMethod) : null;
+    const totals = calculateCheckoutTotals(checkoutProductSubtotal, selectedPayment, deliveryMethod, checkoutProducts, checkoutCep);
+    const shippingLabel = estimate ? `R$ ${money(totals.shipping)}` : "Informe o CEP";
     document.getElementById("checkoutShipping").textContent = shippingLabel;
-    document.getElementById("checkoutShipping").classList.toggle("free-shipping", totals.shipping === 0);
+    document.getElementById("checkoutShipping").classList.remove("free-shipping");
     document.getElementById("checkoutTotal").textContent = `R$ ${money(totals.total)}`;
     document.getElementById("checkoutPixDiscount").hidden = totals.pixDiscount === 0;
     document.getElementById("checkoutPixDiscountValue").textContent = `-R$ ${money(totals.pixDiscount)}`;
-    document.getElementById("deliveryOptionTitle").textContent = standardShipping === 0 ? "Frete Grátis" : "Entrega";
-    document.getElementById("deliveryOptionPrice").textContent = standardShipping === 0 ? "Grátis" : `R$ ${money(standardShipping)}`;
+    document.getElementById("deliveryOptionTitle").textContent = deliveryMethod === "pickup" ? "Retirada" : "Entrega estimada";
+    document.getElementById("deliveryOptionPrice").textContent = deliveryMethod === "pickup"
+      ? "Grátis"
+      : estimate ? `R$ ${money(estimate.shipping)}` : "—";
+    document.getElementById("deliveryEstimateDetails").textContent = deliveryMethod === "pickup"
+      ? "Retire em um ponto parceiro"
+      : estimate
+        ? `${deliveryDescription(estimate)} (simulação)`
+        : "Informe um CEP válido para calcular o frete.";
+    document.getElementById("checkoutCepFeedback").textContent = checkoutCep
+      ? `Estimativa fictícia calculada para o CEP ${formatCEP(checkoutCep)}.`
+      : "Informe um CEP válido com 8 números.";
+    document.getElementById("confirmPayment").disabled = checkoutProducts.length > 0 && !checkoutCep;
   }
   checkoutForm.addEventListener("change", syncPaymentSelection);
+  const checkoutDeliveryCep = document.getElementById("checkoutDeliveryCep");
+  checkoutDeliveryCep.addEventListener("input", () => {
+    checkoutDeliveryCep.value = formatCEP(checkoutDeliveryCep.value);
+    syncPaymentSelection();
+  });
+  document.getElementById("calculateCheckoutDelivery").addEventListener("click", () => {
+    const saveResult = saveDestinationCep(checkoutDeliveryCep.value);
+    if (saveResult !== "saved") {
+      document.getElementById("checkoutCepFeedback").textContent = saveResult === "invalid"
+        ? "Informe um CEP válido com 8 números."
+        : "Não foi possível salvar o CEP neste navegador. Verifique o armazenamento e tente novamente.";
+      checkoutDeliveryCep.focus();
+      return;
+    }
+    checkoutDeliveryCep.value = formatCEP(destinationCep);
+    document.getElementById("checkoutCepFeedback").textContent = `Estimativa fictícia calculada para o CEP ${formatCEP(destinationCep)}.`;
+    syncPaymentSelection();
+    updateCart(false);
+  });
   document.getElementById("checkoutBack").addEventListener("click", () => {
     showAppPage("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1339,14 +1498,20 @@
       throw new Error("Não foi possível gerar um número de pedido exclusivo.");
     }
     const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    const deliveryMethod = checkoutForm.querySelector('input[name="delivery"]:checked')?.value || "free";
-    const { shipping, pixDiscount, total } = calculateCheckoutTotals(subtotal, paymentMethod, deliveryMethod);
+    const deliveryMethod = checkoutForm.querySelector('input[name="delivery"]:checked')?.value || "delivery";
+    const orderDestinationCep = normalizeCEP(document.getElementById("checkoutDeliveryCep").value);
+    const { shipping, pixDiscount, total, distanceKm, days } = calculateCheckoutTotals(
+      subtotal, paymentMethod, deliveryMethod, checkoutProducts, orderDestinationCep
+    );
     const order = {
       id: orderId,
       date: new Date().toISOString(),
       items: orderItems,
       subtotal,
       shipping,
+      destinationCep: orderDestinationCep,
+      deliveryDistanceKm: distanceKm,
+      deliveryDays: days,
       pixDiscount,
       total,
       paymentMethod,
@@ -1622,6 +1787,7 @@
     const category = form.elements.category.value;
     const price = Number(form.elements.price.value);
     const description = form.elements.description.value.trim();
+    const sellerCep = normalizeCEP(form.elements.sellerCep.value);
     let imageURL;
     try {
       imageURL = new URL(form.elements.imageUrl.value.trim());
@@ -1630,8 +1796,8 @@
       setMarketplaceMessage(message, "Informe uma URL de imagem válida iniciada por http:// ou https://.", true);
       return;
     }
-    if (!title || !CATS.includes(category) || !Number.isFinite(price) || price <= 0 || !description) {
-      setMarketplaceMessage(message, "Preencha o título, a categoria, o preço e a descrição do anúncio.", true);
+    if (!title || !CATS.includes(category) || !Number.isFinite(price) || price <= 0 || !description || !sellerCep) {
+      setMarketplaceMessage(message, "Preencha os campos obrigatórios e informe um CEP de origem com 8 números.", true);
       return;
     }
 
@@ -1658,6 +1824,7 @@
       price: Math.round(price * 100) / 100,
       imageUrl: imageURL.href,
       description,
+      sellerCep,
       old: null,
       discount: null,
       rating: "0.0",
@@ -1684,6 +1851,10 @@
   let rejectionTrigger = null;
   const rejectionModal = document.getElementById("rejectionModal");
   const rejectionReasonInput = document.getElementById("rejectionReason");
+  const sellerCepInput = document.querySelector('#sellerProductForm [name="sellerCep"]');
+  sellerCepInput.addEventListener("input", () => {
+    sellerCepInput.value = formatCEP(sellerCepInput.value);
+  });
   function closeRejectionModal(restoreFocus = true) {
     rejectionModal.hidden = true;
     rejectionModal.classList.add("hidden");
@@ -1726,6 +1897,23 @@
     rejectionModal.hidden = false;
     rejectionModal.classList.remove("hidden");
     rejectionReasonInput.focus();
+  });
+  document.getElementById("adminFactoryReset").addEventListener("click", () => {
+    if (currentUser?.role !== "admin") return;
+    const confirmed = window.confirm("Restaurar a demonstração? Isso apagará catálogo personalizado, anúncios, usuário, carrinho, favoritos, pedidos e CEP salvo neste navegador.");
+    if (!confirmed) return;
+    try {
+      ["catalog", "pendingProducts", "user", "cart", "favorites", "orders", "deliveryCep"]
+        .forEach(key => localStorage.removeItem(key));
+      window.location.reload();
+    } catch (error) {
+      console.error("Não foi possível restaurar os dados de demonstração.", error);
+      setMarketplaceMessage(
+        document.getElementById("adminDashboardMessage"),
+        "Não foi possível restaurar os dados. Verifique as permissões de armazenamento do navegador.",
+        true
+      );
+    }
   });
   document.getElementById("rejectionForm").addEventListener("submit", event => {
     event.preventDefault();

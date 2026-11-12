@@ -297,7 +297,8 @@
     loginButton.hidden = isLoggedIn;
     greeting.hidden = !isLoggedIn;
     ordersButton.hidden = !isLoggedIn;
-    greeting.textContent = isLoggedIn ? `Olá, ${currentUser.nome}` : "";
+    greeting.classList.toggle("logged-in", isLoggedIn);
+    greeting.querySelector("[data-user-name]").textContent = isLoggedIn ? `Olá, ${currentUser.nome}` : "";
   }
 
   function renderCategoryPage(category) {
@@ -381,6 +382,15 @@
   });
 
   document.body.addEventListener("click", e => {
+    const panelProductLink = e.target.closest("[data-panel-product]");
+    if (panelProductLink) {
+      e.preventDefault();
+      const title = panelProductLink.dataset.panelProduct;
+      closeScreens();
+      openProduct(title);
+      return;
+    }
+
     const card = e.target.closest(".card[data-product]");
     const title = card?.dataset.product;
 
@@ -447,9 +457,11 @@
   }
 
   function panelItem(product, actions) {
+    const title = escapeHTML(product.title);
     return `<article class="panel-item">
-      <div class="panel-item-icon">${product.imageUrl ? `<img class="product-photo" src="${product.imageUrl}" alt="" loading="lazy">` : ICONS[product.cat]}</div>
-      <div><div class="panel-item-title">${product.title}</div><div class="panel-item-price">R$ ${money(product.price)}</div>${actions}</div>
+      <a class="panel-item-icon panel-item-link" href="#produto" data-panel-product="${title}" aria-label="Ver detalhes de ${title}">${product.imageUrl ? `<img class="product-photo" src="${product.imageUrl}" alt="" loading="lazy">` : ICONS[product.cat]}</a>
+      <div class="panel-item-copy"><a class="panel-item-title panel-item-link" href="#produto" data-panel-product="${title}">${title}</a><div class="panel-item-price">R$ ${money(product.price)}</div></div>
+      ${actions}
     </article>`;
   }
 

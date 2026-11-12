@@ -53,6 +53,7 @@
       <button type="button" class="header-action" id="favoritesOpen">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
         Favoritos
+        <span class="cart-count" id="favoritesCount" aria-label="Itens nos favoritos" aria-live="polite">0</span>
       </button>
       <button type="button" class="header-action" id="cartOpen">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
@@ -208,6 +209,24 @@
   </section>
 </main>
 
+<main id="registerPage" class="register-page hidden" tabindex="-1" hidden>
+  <div class="register-container">
+    <section class="register-panel" aria-labelledby="registerTitle">
+      <div class="login-brand">KART<span>2</span>TOP</div>
+      <h1 id="registerTitle">Criar sua conta</h1>
+      <p>Cadastro demonstrativo: seus dados ficam apenas neste navegador.</p>
+      <p id="registerError" class="checkout-error" role="alert" hidden></p>
+      <form id="registerForm">
+        <label>Nome<input name="name" type="text" autocomplete="name" placeholder="Seu nome" required></label>
+        <label>E-mail<input name="email" type="email" autocomplete="email" placeholder="seu@email.com" required></label>
+        <label>Senha<input name="password" type="password" autocomplete="new-password" placeholder="Crie uma senha" minlength="6" required></label>
+        <button class="panel-primary" type="submit">Criar Conta</button>
+      </form>
+      <a class="register-login-link" id="registerLoginOpen" href="#login">Já tem conta? Faça login</a>
+    </section>
+  </div>
+</main>
+
 <main id="storeHome" tabindex="-1">
 <!-- HERO CAROUSEL -->
 <section class="hero" aria-label="Destaques da Kart to Top" aria-roledescription="carrossel">
@@ -351,6 +370,7 @@
     <div id="favoritesList" class="panel-list"></div>
   </aside>
 </div>
+
 
 <div class="screen-overlay" id="cartScreen" aria-hidden="true">
   <aside class="side-panel cart-panel" role="dialog" aria-modal="true" aria-labelledby="cartTitle">

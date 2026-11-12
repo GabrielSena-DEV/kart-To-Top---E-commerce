@@ -145,7 +145,42 @@
   let activeCategory = "todos";
   let cartCount = 0;
   let searchTerm = "";
-  const favorites = new Set();
+  function getRandomProducts(quantidade) {
+    if (!Number.isInteger(quantidade) || quantidade < 0) {
+      throw new RangeError("A quantidade de produtos deve ser um inteiro não negativo.");
+    }
+    const products = [...catalog];
+    for (let index = products.length - 1; index > 0; index--) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [products[index], products[randomIndex]] = [products[randomIndex], products[index]];
+    }
+    return products.slice(0, Math.min(quantidade, products.length));
+  }
+  function loadFavorites() {
+    try {
+      const savedFavorites = localStorage.getItem("favorites");
+      if (!savedFavorites) return new Set();
+      const parsedFavorites = JSON.parse(savedFavorites);
+      if (!Array.isArray(parsedFavorites)) {
+        throw new TypeError("O formato salvo para os favoritos é inválido.");
+      }
+      const productTitles = new Set(catalog.map(product => product.title));
+      return new Set(parsedFavorites.map(product => typeof product === "string" ? product : product?.title)
+        .filter(title => productTitles.has(title)));
+    } catch (error) {
+      console.error("Não foi possível carregar os favoritos salvos.", error);
+      return new Set();
+    }
+  }
+  const favorites = loadFavorites();
+  function saveFavorites() {
+    try {
+      const products = [...favorites].map(title => catalog.find(product => product.title === title)).filter(Boolean);
+      localStorage.setItem("favorites", JSON.stringify(products));
+    } catch (error) {
+      console.error("Não foi possível salvar os favoritos neste navegador.", error);
+    }
+  }
   function loadUser() {
     try {
       const savedUser = localStorage.getItem("user");
@@ -166,11 +201,14 @@
       const savedCart = localStorage.getItem("cart");
       if (!savedCart) return new Map();
       const parsedCart = JSON.parse(savedCart);
-      if (!parsedCart || typeof parsedCart !== "object" || Array.isArray(parsedCart)) {
+      if (!parsedCart || typeof parsedCart !== "object") {
         throw new TypeError("O formato salvo para o carrinho é inválido.");
       }
       const productTitles = new Set(catalog.map(product => product.title));
-      return new Map(Object.entries(parsedCart).filter(([title, quantity]) =>
+      const entries = Array.isArray(parsedCart)
+        ? parsedCart.map(product => [product?.title, product?.quantity ?? 1])
+        : Object.entries(parsedCart);
+      return new Map(entries.filter(([title, quantity]) =>
         productTitles.has(title) && Number.isInteger(quantity) && quantity > 0
       ));
     } catch (error) {
@@ -273,12 +311,15 @@
   }
 
   function showAppPage(page) {
-    const pageTargets = { home: "storeHome", category: "categoryPage", info: "infoPage", product: "productPage", orders: "ordersPage", checkout: "checkoutPage", success: "successPage" };
+    const pageTargets = { home: "storeHome", category: "categoryPage", info: "infoPage", product: "productPage", orders: "ordersPage", checkout: "checkoutPage", success: "successPage", register: "registerPage" };
     document.getElementById("skipLink").href = `#${pageTargets[page] || pageTargets.home}`;
     document.getElementById("storeHome").hidden = page !== "home";
     document.getElementById("categoryPage").hidden = page !== "category";
     document.getElementById("infoPage").hidden = page !== "info";
     document.getElementById("productPage").hidden = page !== "product";
+    const registerPage = document.getElementById("registerPage");
+    registerPage.hidden = page !== "register";
+    registerPage.classList.toggle("hidden", page !== "register");
     ["ordersPage", "checkoutPage", "successPage"].forEach(id => {
       const pageElement = document.getElementById(id);
       const isHidden = page !== id.replace("Page", "").toLowerCase();
@@ -297,7 +338,8 @@
       product: document.getElementById("productDetailTitle"),
       orders: document.getElementById("ordersTitle"),
       checkout: document.getElementById("checkoutTitle"),
-      success: document.getElementById("successTitle")
+      success: document.getElementById("successTitle"),
+      register: document.getElementById("registerTitle")
     };
     const heading = pageHeadings[page];
     if (heading) {
@@ -352,6 +394,7 @@
     const favorite = e.target.closest("[data-favorite]");
     if (favorite && title) {
       favorites.has(title) ? favorites.delete(title) : favorites.add(title);
+      saveFavorites();
       syncFavoriteButtons();
       renderFavorites();
     }
@@ -359,6 +402,7 @@
     const removeFavorite = e.target.closest("[data-remove-favorite]");
     if (removeFavorite) {
       favorites.delete(removeFavorite.dataset.removeFavorite);
+      saveFavorites();
       syncFavoriteButtons();
       renderFavorites();
     }
@@ -411,6 +455,7 @@
 
   function renderFavorites() {
     const list = [...favorites].map(title => catalog.find(product => product.title === title)).filter(Boolean);
+    document.getElementById("favoritesCount").textContent = favorites.size;
     document.getElementById("favoritesList").innerHTML = list.length ? list.map(product => panelItem(product,
       `<button class="item-remove" type="button" data-remove-favorite="${product.title}" aria-label="Remover ${product.title} dos favoritos">&times;</button>`
     )).join("") : `<div class="panel-empty"><strong>Sua lista está vazia</strong><span>Escolha um produto com o coração para guardar aqui.</span></div>`;
@@ -652,10 +697,13 @@
           throw new Error("O carrinho está vazio. Adicione produtos antes de finalizar a compra.");
         }
         const storedCart = JSON.parse(savedCart);
-        if (!storedCart || typeof storedCart !== "object" || Array.isArray(storedCart)) {
+        if (!storedCart || typeof storedCart !== "object") {
           throw new TypeError("O formato salvo para o carrinho é inválido.");
         }
-        const orderItems = Object.entries(storedCart).map(([title, quantity]) => {
+        const cartEntries = Array.isArray(storedCart)
+          ? storedCart.map(product => [product?.title, product?.quantity ?? 1])
+          : Object.entries(storedCart);
+        const orderItems = cartEntries.map(([title, quantity]) => {
           const product = catalog.find(item => item.title === title);
           if (!product || !Number.isInteger(quantity) || quantity < 1) {
             throw new TypeError("Há um item inválido no carrinho salvo.");
@@ -793,6 +841,21 @@
     document.getElementById("loginError").hidden = true;
     openScreen("loginScreen");
   });
+  function openRegisterPage() {
+    pendingOrdersNavigation = false;
+    closeScreens();
+    document.getElementById("registerError").hidden = true;
+    document.getElementById("registerForm").reset();
+    showAppPage("register");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelector(".create-account").addEventListener("click", openRegisterPage);
+  document.getElementById("registerLoginOpen").addEventListener("click", e => {
+    e.preventDefault();
+    showAppPage("home");
+    document.getElementById("loginError").hidden = true;
+    openScreen("loginScreen");
+  });
   document.getElementById("favoritesOpen").addEventListener("click", () => openScreen("favoritesScreen"));
   document.getElementById("cartOpen").addEventListener("click", () => openScreen("cartScreen"));
   document.querySelectorAll("[data-close], [data-close-product]").forEach(button => button.addEventListener("click", closeScreens));
@@ -841,7 +904,49 @@
       navigateToOrders();
     }
   });
+  document.getElementById("registerForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const registerError = document.getElementById("registerError");
+    const nameInput = form.querySelector('[name="name"]');
+    const nome = nameInput.value.trim();
+    registerError.hidden = true;
+    if (!nome) {
+      registerError.textContent = "Informe seu nome para criar a conta.";
+      registerError.hidden = false;
+      nameInput.focus();
+      return;
+    }
+
+    const newUser = { nome, logado: true };
+    let seededFavorites;
+    let seededCart;
+    try {
+      seededFavorites = getRandomProducts(5);
+      seededCart = getRandomProducts(2);
+      localStorage.setItem("user", JSON.stringify(newUser));
+      localStorage.setItem("favorites", JSON.stringify(seededFavorites));
+      localStorage.setItem("cart", JSON.stringify(seededCart));
+    } catch (error) {
+      console.error("Não foi possível concluir o cadastro neste navegador.", error);
+      registerError.textContent = "Não foi possível salvar sua conta neste navegador. Verifique as configurações de armazenamento e tente novamente.";
+      registerError.hidden = false;
+      return;
+    }
+
+    currentUser = newUser;
+    favorites.clear();
+    seededFavorites.forEach(product => favorites.add(product.title));
+    cart.clear();
+    seededCart.forEach(product => cart.set(product.title, 1));
+    updateUserHeader();
+    syncFavoriteButtons();
+    updateCart(false);
+    showAppPage("home");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 
   updateUserHeader();
+  syncFavoriteButtons();
   renderFavorites();
   updateCart();
